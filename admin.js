@@ -1,0 +1,608 @@
+/* =====================================================================
+   Doces do Léo — Painel Administrativo
+   ===================================================================== */
+
+/* ================= CARDÁPIO INICIAL (usado só pelo botão "Importar") ================= */
+const SEED_MENU = [
+    { category: "Bolos gelado", items: [
+        { id: "gelado-maracuja-brigadeiro", name: "Bolo gelado maracujá com brigadeiro", desc: "Massa de chocolate, recheio de brigadeiro de maracujá e brigadeiro de chocolate. Peso aproximado de 150g.", price: 12.0 },
+        { id: "gelado-chocomousse", name: "Bolo gelado chocomousse", desc: "Massa de chocolate, recheio de mousse de chocolate e brigadeiro de chocolate. Peso aproximado de 150g.", price: 12.0 },
+        { id: "gelado-ninho-geleia", name: "Bolo gelado ninho com geleia", desc: "Recheio cremoso de ninho e geleia artesanal de morango, suave na medida certa. Peso aproximado de 130g.", price: 13.0 }
+    ]},
+    { category: "Brownie", items: [
+        { id: "brownie-ninho-nutella", name: "Brownie ninho com nutella", desc: "Macio por dentro, casquinha por fora, recheio de ninho e nutella. 130g.", price: 13.0 },
+        { id: "brownie-coberto-chocolate", name: "Brownie coberto com chocolate", desc: "2 pedaços 6x6, recheados com brigadeiro de ninho e nutella, cobertos com chocolate.", price: 16.0 },
+        { id: "brownie-morango", name: "Brownie com morango", desc: "Brigadeiro de ninho, nutella e muito morango. Peso aproximado de 200g.", price: 18.0 }
+    ]},
+    { category: "Bolos de aniversário", items: [
+        { id: "aniversario-15-fatias", name: "Bolo 15 fatias", desc: "Sob encomenda — combine o sabor com a gente.", price: 120.0 },
+        { id: "aniversario-10-fatias", name: "Bolo 10 fatias", desc: "Sob encomenda — combine o sabor com a gente.", price: 95.0 },
+        { id: "aniversario-5-6-fatias", name: "Bolo 5/6 fatias", desc: "Sob encomenda — combine o sabor com a gente.", price: 55.0 },
+        { id: "aniversario-mini-presente", name: "Mini para presente", desc: "Tamanho individual, perfeito para presentear.", price: 42.0 }
+    ]},
+    { category: "Bolo no pote", items: [
+        { id: "pote-ninho-nutella", name: "Bolo no pote ninho com nutella", desc: "Bolo de chocolate recheado com brigadeiro de ninho e nutella. Peso aproximado de 250g.", price: 18.0 },
+        { id: "pote-maracuja-brigadeiro", name: "Bolo no pote maracujá com brigadeiro", desc: "Massa de chocolate, brigadeiro de maracujá feito com a fruta e brigadeiro cremoso 50% cacau, finalizado com granulado de chocolate nobre.", price: 18.0 },
+        { id: "pote-ninho-morango", name: "Bolo no pote ninho com morango", desc: "Massa de baunilha, recheio de brigadeiro de ninho e pedaços de morango. O clássico que todo mundo ama.", price: 17.0 }
+    ]},
+    { category: "Mini vulcão", items: [
+        { id: "vulcao-oreo", name: "Mini vulcão oreo", desc: "Peso aproximado de 250g.", price: 20.0 },
+        { id: "vulcao-morango-nutella", name: "Mini vulcão morango + nutella", desc: "Massa de chocolate, recheio de ninho, morangos no meio e por cima para decorar. Peso aproximado de 250g.", price: 22.0 },
+        { id: "vulcao-ninho-nutella", name: "Mini vulcão ninho com nutella", desc: "Massa de chocolate, recheio de ninho, nutella e mais nutella para finalizar. Peso aproximado de 250g.", price: 20.0 },
+        { id: "vulcao-brigadeiro", name: "Mini vulcão brigadeiro", desc: "Massa de chocolate e recheio de brigadeiro cremoso, para quem ama tudo de chocolate. Peso aproximado de 250g.", price: 20.0 }
+    ]},
+    { category: "Cone trufado", items: [
+        { id: "cone-ouro-branco-nutella", name: "Cone trufado ouro branco com nutella", desc: "Casquinha crocante recheada com trufa de ouro branco e nutella.", price: 23.0 },
+        { id: "cone-ninho-nutella", name: "Cone trufado ninho com nutella", desc: "Casquinha crocante recheada com trufa de ninho e nutella.", price: 21.0 },
+        { id: "cone-brownie-morango", name: "Cone trufado brownie + morango", desc: "Casquinha crocante coberta com chocolate, brigadeiro cremoso de ninho, brownie, brigadeiro de chocolate e morango.", price: 23.0 }
+    ]},
+    { category: "Barra recheada", items: [
+        { id: "barra-ninho-nutella", name: "Barra de chocolate ninho com nutella", desc: "Cobertura sabor chocolate, recheada com brigadeiro de ninho e nutella. 150g de puro sabor.", price: 15.0 }
+    ]},
+    { category: "Coxinha", items: [
+        { id: "coxinha-frango", name: "Coxinha de frango", desc: "Massa saborosa, recheio de frango cremoso, requeijão e casquinha crocante.", price: 11.0, badge: "Mais pedido" },
+        { id: "coxinha-carne", name: "Coxinha de carne", desc: "Massa saborosa, recheio de carne desfiada, cream cheese e casquinha crocante. 150g.", price: 13.0 }
+    ]},
+    { category: "Bombons", items: [
+        { id: "bombom-oreo-nutella", name: "Bombom oreo com nutella", desc: "Brigadeiro de ninho, oreo e nutella, coberto com chocolate e finalizado com granulado. Peso aproximado de 60g.", price: 10.0 },
+        { id: "bombom-oreo", name: "Bombom de oreo", desc: "Brigadeiro de ninho e oreo, passado no ninho e finalizado com nutella. Peso aproximado de 60g.", price: 8.0 },
+        { id: "bombom-uva", name: "Bombom de uva", desc: "Brigadeiro de ninho, uvas verdes sem semente, coberto com chocolate. Peso aproximado de 70g.", price: 9.0 },
+        { id: "bombom-morango", name: "Bombom de morango", desc: "Brigadeiro de ninho, morango e casquinha de chocolate. Peso aproximado de 70g.", price: 12.0, badge: "Mais pedido" },
+        { id: "bombom-maracuja-brigadeiro", name: "Bombom de maracujá com brigadeiro", desc: "Brigadeiro de maracujá e brigadeiro de chocolate, com um morango no meio. Peso aproximado de 70g.", price: 12.0 },
+        { id: "bombom-morango-cravejado", name: "Bombom de morango cravejado", desc: "", price: 12.0, badge: "Mais pedido" }
+    ]},
+    { category: "Trufas", items: [
+        { id: "trufa-cajuzinho", name: "Trufa cajuzinho", desc: "Brigadeiro de chocolate, amendoim e nutella, coberta com chocolate. Peso de 50g.", price: 6.0 }
+    ]},
+    { category: "Ouro branco", items: [
+        { id: "trufado-ouro-branco", name: "Trufado de ouro branco", desc: "Brigadeiro de ninho, brigadeiro de chocolate, creme de ninho e ouro branco.", price: 23.0 }
+    ]},
+    { category: "Fatias de bolo", items: [
+        { id: "bolo-chocolatudo", name: "Bolo chocolatudo", desc: "Massa de chocolate, recheio de brigadeiro e creme de ninho, finalizado com granulado de chocolate.", price: 19.0 },
+        { id: "fatia-chocolate", name: "Fatia de chocolate", desc: "Massa de chocolate e recheio de brigadeiro cremoso. Peso aproximado de 200g.", price: 18.0 },
+        { id: "fatia-ninho-morango", name: "Fatia de ninho com morango", desc: "Massa de baunilha e recheio de brigadeiro de ninho cremoso com pedaços de morango.", price: 20.0 }
+    ]},
+    { category: "Refrigerantes", items: [
+        { id: "coca-tradicional", name: "Coca tradicional", desc: "", price: 3.0 },
+        { id: "coca-zero", name: "Coca zero", desc: "", price: 3.0 }
+    ]},
+    { category: "Outros", items: [
+        { id: "delicia-dos-sonhos", name: "Delícia dos sonhos", desc: "Camadas de ninho, brigadeiro, brownie e morangos para equilibrar. Peso aproximado de 270g.", price: 20.0 },
+        { id: "bombom-aberto-morango", name: "Bombom aberto de morango", desc: "Potinho de 145ml com morangos, ninho e brigadeiro cremoso.", price: 13.0 },
+        { id: "coxinha-morango-nutella", name: "Coxinha de morango com nutella", desc: "Brigadeiro de ninho, morango e finalizado com nutella. Peso aproximado de 70g.", price: 12.0 },
+        { id: "copo-felicidade-choconinho", name: "Copo da felicidade choconinho", desc: "Brigadeiro de ninho, brigadeiro de chocolate e brownie. Em média 300g.", price: 17.0 },
+        { id: "copo-felicidade-maracuja", name: "Copo da felicidade maracujá com brigadeiro", desc: "Brigadeiro de chocolate, brigadeiro de maracujá feito com a fruta e brownie. Aproximadamente 300g.", price: 17.0 },
+        { id: "trufa-brownie", name: "Trufa brownie", desc: "Recheada com brigadeiro, ninho e brownie. 50g.", price: 5.0 },
+        { id: "guarana", name: "Guaraná", desc: "", price: 3.0 }
+    ]}
+];
+
+function fmtBRL(v) {
+    return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/* ================= AUTH ================= */
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+    } catch (err) {
+        errEl.textContent = 'E-mail ou senha inválidos.';
+        console.error(err);
+    }
+});
+
+function logout() {
+    auth.signOut();
+}
+
+auth.onAuthStateChanged(user => {
+    if (user) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('admin-app').classList.remove('hidden');
+        document.getElementById('admin-user-email').textContent = user.email;
+        startListeners();
+    } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('admin-app').classList.add('hidden');
+    }
+});
+
+let listenersStarted = false;
+function startListeners() {
+    if (listenersStarted) return;
+    listenersStarted = true;
+    listenStoreConfig();
+    listenProducts();
+    listenPromotions();
+    listenCashflow();
+    listenOrders();
+}
+
+/* ================= TABS ================= */
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+}
+
+/* ================= STATUS DA LOJA ================= */
+let currentStoreConfig = {};
+
+function listenStoreConfig() {
+    db.collection('config').doc('store').onSnapshot(doc => {
+        currentStoreConfig = doc.exists ? doc.data() : {};
+        renderStoreStatusUI();
+        fillConfigForm();
+    });
+}
+
+function renderStoreStatusUI() {
+    const mode = currentStoreConfig.manualStatus || 'auto';
+    document.querySelectorAll('#store-toggle button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+    let open;
+    if (mode === 'open') open = true;
+    else if (mode === 'closed') open = false;
+    else open = isOpenNowFromConfig();
+
+    const pill = document.getElementById('admin-status-pill');
+    pill.textContent = open ? 'Aberto agora' : 'Fechado';
+    pill.classList.toggle('open', open);
+    pill.classList.toggle('closed', !open);
+}
+
+function isOpenNowFromConfig() {
+    const days = currentStoreConfig.openDays || [1, 2, 3, 4, 5, 6];
+    const openTime = currentStoreConfig.openTime || '13:30';
+    const closeTime = currentStoreConfig.closeTime || '18:00';
+    const now = new Date();
+    if (!days.includes(now.getDay())) return false;
+    const [oh, om] = openTime.split(':').map(Number);
+    const [ch, cm] = closeTime.split(':').map(Number);
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    return minutesNow >= (oh * 60 + om) && minutesNow <= (ch * 60 + cm);
+}
+
+function setStoreMode(mode) {
+    db.collection('config').doc('store').set({ manualStatus: mode }, { merge: true });
+}
+
+/* ================= CONFIG DA LOJA (form) ================= */
+function fillConfigForm() {
+    const c = currentStoreConfig;
+    document.getElementById('cfg-tagline').value = c.tagline || '';
+    document.getElementById('cfg-address').value = c.address || '';
+    document.getElementById('cfg-pickup').value = c.pickupEstimate || '';
+    document.getElementById('cfg-delivery').value = c.deliveryEstimate || '';
+    document.getElementById('cfg-min-order').value = c.minOrder || '';
+    document.getElementById('cfg-whatsapp').value = c.whatsappNumber || '';
+    document.getElementById('cfg-open-time').value = c.openTime || '13:30';
+    document.getElementById('cfg-close-time').value = c.closeTime || '18:00';
+    const days = c.openDays || [1, 2, 3, 4, 5, 6];
+    document.querySelectorAll('#weekday-picker input').forEach(cb => {
+        cb.checked = days.includes(Number(cb.value));
+    });
+}
+
+document.getElementById('store-config-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const days = Array.from(document.querySelectorAll('#weekday-picker input:checked')).map(cb => Number(cb.value));
+    const minOrderVal = document.getElementById('cfg-min-order').value;
+    const payload = {
+        tagline: document.getElementById('cfg-tagline').value.trim(),
+        address: document.getElementById('cfg-address').value.trim(),
+        pickupEstimate: document.getElementById('cfg-pickup').value.trim(),
+        deliveryEstimate: document.getElementById('cfg-delivery').value.trim(),
+        minOrder: minOrderVal ? Number(minOrderVal) : null,
+        whatsappNumber: document.getElementById('cfg-whatsapp').value.trim(),
+        openTime: document.getElementById('cfg-open-time').value,
+        closeTime: document.getElementById('cfg-close-time').value,
+        openDays: days
+    };
+    await db.collection('config').doc('store').set(payload, { merge: true });
+    const note = document.getElementById('config-save-note');
+    note.textContent = 'Dados salvos!';
+    setTimeout(() => note.textContent = '', 2500);
+});
+
+/* ================= PRODUTOS ================= */
+let allProducts = [];
+
+function listenProducts() {
+    db.collection('products').onSnapshot(snap => {
+        allProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => (a.categoryOrder ?? 999) - (b.categoryOrder ?? 999) || a.category.localeCompare(b.category, 'pt-BR') || a.name.localeCompare(b.name, 'pt-BR'));
+        renderProductsList();
+        fillCategoryOptions();
+    });
+}
+
+function fillCategoryOptions() {
+    const dl = document.getElementById('category-options');
+    const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
+    dl.innerHTML = cats.map(c => `<option value="${c}"></option>`).join('');
+}
+
+document.getElementById('product-search').addEventListener('input', renderProductsList);
+
+function renderProductsList() {
+    const term = document.getElementById('product-search').value.trim().toLowerCase();
+    const list = allProducts.filter(p =>
+        !term || p.name.toLowerCase().includes(term) || (p.category || '').toLowerCase().includes(term)
+    );
+    const root = document.getElementById('products-list');
+    if (list.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum produto encontrado.</p>`;
+        return;
+    }
+    root.innerHTML = list.map(p => {
+        const flags = [];
+        if (p.active === false) flags.push('<span class="flag inactive">Inativo</span>');
+        if (p.stock != null && p.stock <= 0) flags.push('<span class="flag lowstock">Esgotado</span>');
+        else if (p.stock != null && p.stock <= 3) flags.push(`<span class="flag lowstock">Estoque baixo (${p.stock})</span>`);
+        if (p.promoPrice != null && p.promoPrice < p.price) flags.push('<span class="flag promo">Promoção</span>');
+        return `
+      <div class="product-row" onclick="openProductModal('${p.id}')">
+        <div class="p-thumb">${p.img ? `<img src="${p.img}" alt="">` : '🍰'}</div>
+        <div class="p-info">
+          <div class="p-name">${p.name}</div>
+          <div class="p-cat">${p.category || 'Sem categoria'}</div>
+        </div>
+        <div class="p-price">${fmtBRL(p.promoPrice != null && p.promoPrice < p.price ? p.promoPrice : p.price)}</div>
+        <div class="p-flags">${flags.join('')}</div>
+      </div>`;
+    }).join('');
+}
+
+function openProductModal(id) {
+    const form = document.getElementById('product-form');
+    form.reset();
+    document.getElementById('p-id').value = id || '';
+    document.getElementById('p-delete-btn').style.display = id ? 'block' : 'none';
+    document.getElementById('product-modal-title').textContent = id ? 'Editar produto' : 'Novo produto';
+
+    if (id) {
+        const p = allProducts.find(x => x.id === id);
+        if (p) {
+            document.getElementById('p-category').value = p.category || '';
+            document.getElementById('p-name').value = p.name || '';
+            document.getElementById('p-desc').value = p.desc || '';
+            document.getElementById('p-price').value = p.price ?? '';
+            document.getElementById('p-promo-price').value = p.promoPrice ?? '';
+            document.getElementById('p-stock').value = p.stock ?? '';
+            document.getElementById('p-badge').value = p.badge || '';
+            document.getElementById('p-img').value = p.img || '';
+            document.getElementById('p-active').checked = p.active !== false;
+        }
+    } else {
+        document.getElementById('p-active').checked = true;
+    }
+    document.getElementById('product-modal').classList.add('open');
+}
+
+function closeProductModal() {
+    document.getElementById('product-modal').classList.remove('open');
+}
+
+document.getElementById('product-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('p-id').value;
+    const category = document.getElementById('p-category').value.trim();
+    const stockVal = document.getElementById('p-stock').value;
+    const promoVal = document.getElementById('p-promo-price').value;
+
+    // mantém a ordem da categoria já existente, ou coloca no fim
+    const existingOrder = allProducts.find(p => p.category === category)?.categoryOrder;
+    const maxOrder = allProducts.reduce((m, p) => Math.max(m, p.categoryOrder ?? 0), 0);
+
+    const payload = {
+        category,
+        categoryOrder: existingOrder ?? (maxOrder + 1),
+        name: document.getElementById('p-name').value.trim(),
+        desc: document.getElementById('p-desc').value.trim(),
+        price: Number(document.getElementById('p-price').value),
+        promoPrice: promoVal ? Number(promoVal) : null,
+        stock: stockVal ? Number(stockVal) : null,
+        badge: document.getElementById('p-badge').value.trim() || null,
+        img: document.getElementById('p-img').value.trim() || null,
+        active: document.getElementById('p-active').checked
+    };
+
+    if (id) {
+        await db.collection('products').doc(id).set(payload, { merge: true });
+    } else {
+        await db.collection('products').add(payload);
+    }
+    closeProductModal();
+});
+
+async function deleteCurrentProduct() {
+    const id = document.getElementById('p-id').value;
+    if (!id) return;
+    if (!confirm('Excluir este produto permanentemente?')) return;
+    await db.collection('products').doc(id).delete();
+    closeProductModal();
+}
+
+async function seedInitialMenu() {
+    if (!confirm('Isso vai adicionar os itens do cardápio inicial ao banco de dados (sem apagar produtos já existentes). Continuar?')) return;
+    const btn = document.getElementById('seed-btn');
+    btn.disabled = true;
+    btn.textContent = 'Importando...';
+    try {
+        const batch = db.batch();
+        SEED_MENU.forEach((cat, catIndex) => {
+            cat.items.forEach((item, itemIndex) => {
+                const ref = db.collection('products').doc(item.id);
+                batch.set(ref, {
+                    category: cat.category,
+                    categoryOrder: catIndex,
+                    sortOrder: itemIndex,
+                    name: item.name,
+                    desc: item.desc || '',
+                    price: item.price,
+                    promoPrice: null,
+                    stock: null,
+                    badge: item.badge || null,
+                    img: null,
+                    active: true
+                }, { merge: true });
+            });
+        });
+        await batch.commit();
+        alert('Cardápio importado com sucesso!');
+    } catch (err) {
+        console.error(err);
+        alert('Ocorreu um erro ao importar. Veja o console para detalhes.');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Importar cardápio inicial';
+}
+
+/* ================= PROMOÇÕES ================= */
+let allPromos = [];
+
+function listenPromotions() {
+    db.collection('promotions').onSnapshot(snap => {
+        allPromos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPromosList();
+    });
+}
+
+function renderPromosList() {
+    const root = document.getElementById('promos-list');
+    if (allPromos.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhuma promoção cadastrada ainda.</p>`;
+        return;
+    }
+    root.innerHTML = allPromos.map(p => `
+    <div class="promo-row" onclick="openPromoModal('${p.id}')">
+      <div>
+        <div class="pr-title">${p.title}</div>
+        <div class="pr-dates">${p.startDate || 'sem início'} até ${p.endDate || 'sem fim'} · ${p.active ? 'Ativa' : 'Inativa'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openPromoModal(id) {
+    const form = document.getElementById('promo-form');
+    form.reset();
+    document.getElementById('pr-id').value = id || '';
+    document.getElementById('pr-delete-btn').style.display = id ? 'block' : 'none';
+    document.getElementById('promo-modal-title').textContent = id ? 'Editar promoção' : 'Nova promoção';
+
+    if (id) {
+        const p = allPromos.find(x => x.id === id);
+        if (p) {
+            document.getElementById('pr-title').value = p.title || '';
+            document.getElementById('pr-desc').value = p.description || '';
+            document.getElementById('pr-start').value = p.startDate || '';
+            document.getElementById('pr-end').value = p.endDate || '';
+            document.getElementById('pr-active').checked = p.active !== false;
+        }
+    } else {
+        document.getElementById('pr-active').checked = true;
+    }
+    document.getElementById('promo-modal').classList.add('open');
+}
+
+function closePromoModal() {
+    document.getElementById('promo-modal').classList.remove('open');
+}
+
+document.getElementById('promo-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('pr-id').value;
+    const payload = {
+        title: document.getElementById('pr-title').value.trim(),
+        description: document.getElementById('pr-desc').value.trim(),
+        startDate: document.getElementById('pr-start').value || null,
+        endDate: document.getElementById('pr-end').value || null,
+        active: document.getElementById('pr-active').checked
+    };
+    if (id) {
+        await db.collection('promotions').doc(id).set(payload, { merge: true });
+    } else {
+        await db.collection('promotions').add(payload);
+    }
+    closePromoModal();
+});
+
+async function deleteCurrentPromo() {
+    const id = document.getElementById('pr-id').value;
+    if (!id) return;
+    if (!confirm('Excluir esta promoção?')) return;
+    await db.collection('promotions').doc(id).delete();
+    closePromoModal();
+}
+
+/* ================= FINANCEIRO ================= */
+let allCash = [];
+let cashType = 'entrada';
+
+function setCashType(type) {
+    cashType = type;
+    document.querySelectorAll('#cash-type-toggle button').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+}
+
+function openCashModal() {
+    document.getElementById('cash-form').reset();
+    document.getElementById('c-date').value = new Date().toISOString().slice(0, 10);
+    setCashType('entrada');
+    document.getElementById('cash-modal').classList.add('open');
+}
+function closeCashModal() {
+    document.getElementById('cash-modal').classList.remove('open');
+}
+
+document.getElementById('cash-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await db.collection('cashflow').add({
+        type: cashType,
+        description: document.getElementById('c-desc').value.trim(),
+        value: Number(document.getElementById('c-value').value),
+        date: document.getElementById('c-date').value,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeCashModal();
+});
+
+async function deleteCashEntry(id) {
+    if (!confirm('Excluir este lançamento?')) return;
+    await db.collection('cashflow').doc(id).delete();
+}
+
+function listenCashflow() {
+    db.collection('cashflow').onSnapshot(snap => {
+        allCash = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        renderCashflow();
+    });
+}
+
+function renderCashflow() {
+    const totalIn = allCash.filter(c => c.type === 'entrada').reduce((s, c) => s + c.value, 0);
+    const totalOut = allCash.filter(c => c.type === 'saida').reduce((s, c) => s + c.value, 0);
+    document.getElementById('cash-total-in').textContent = fmtBRL(totalIn);
+    document.getElementById('cash-total-out').textContent = fmtBRL(totalOut);
+    document.getElementById('cash-balance').textContent = fmtBRL(totalIn - totalOut);
+
+    const root = document.getElementById('cash-list');
+    if (allCash.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum lançamento ainda.</p>`;
+        return;
+    }
+    root.innerHTML = allCash.map(c => `
+    <div class="cash-row">
+      <div>
+        <div class="c-desc">${c.description}</div>
+        <div class="c-date">${formatDateBR(c.date)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="c-value ${c.type === 'entrada' ? 'in' : 'out'}">${c.type === 'entrada' ? '+' : '−'} ${fmtBRL(c.value)}</span>
+        <span class="c-delete" onclick="deleteCashEntry('${c.id}')">excluir</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatDateBR(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+/* ================= PEDIDOS ================= */
+let allOrders = [];
+let orderFilter = 'all';
+
+function listenOrders() {
+    db.collection('orders').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
+        allOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderOrders();
+    }, err => console.error('Erro ao carregar pedidos:', err));
+}
+
+document.getElementById('order-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip-filter');
+    if (!btn) return;
+    orderFilter = btn.dataset.status;
+    document.querySelectorAll('.chip-filter').forEach(b => b.classList.toggle('active', b === btn));
+    renderOrders();
+});
+
+function whatsappLinkFor(phoneRaw) {
+    let digits = (phoneRaw || '').replace(/\D/g, '');
+    if (digits.length <= 11) digits = '55' + digits;
+    return `https://wa.me/${digits}`;
+}
+
+const STATUS_LABELS = { novo: 'Novo', preparo: 'Em preparo', pronto: 'Pronto', entregue: 'Entregue', cancelado: 'Cancelado' };
+const NEXT_STATUS = { novo: 'preparo', preparo: 'pronto', pronto: 'entregue' };
+
+function renderOrders() {
+    const newCount = allOrders.filter(o => o.status === 'novo').length;
+    document.getElementById('badge-pedidos').textContent = newCount || '';
+
+    const list = orderFilter === 'all' ? allOrders : allOrders.filter(o => o.status === orderFilter);
+    const root = document.getElementById('orders-list');
+    if (list.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum pedido por aqui.</p>`;
+        return;
+    }
+
+    root.innerHTML = list.map(o => {
+        const time = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString('pt-BR') : '';
+        const itemsHtml = (o.items || []).map(i => `${i.qty}x ${i.name} — ${fmtBRL(i.price * i.qty)}`).join('<br>');
+        const next = NEXT_STATUS[o.status];
+        return `
+      <div class="order-card">
+        <div class="order-card-head">
+          <div>
+            <div class="order-customer">${o.customerName || 'Cliente'}</div>
+            <div class="order-time">${time}</div>
+          </div>
+          <span class="order-status-pill ${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+        </div>
+        <div class="order-items">${itemsHtml}</div>
+        <div class="order-meta">
+          ${o.fulfillment === 'delivery' ? `Delivery — ${o.address || ''}` : 'Retirada no local'} · Tel: ${o.customerPhone || '-'}
+        </div>
+        <div class="order-total">${fmtBRL(o.total)}</div>
+        <div class="order-actions">
+          <a class="wa-link" href="${whatsappLinkFor(o.customerPhone)}" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          ${next ? `<button onclick="setOrderStatus('${o.id}','${next}')">Marcar como ${STATUS_LABELS[next].toLowerCase()}</button>` : ''}
+          ${o.status !== 'cancelado' && o.status !== 'entregue' ? `<button onclick="setOrderStatus('${o.id}','cancelado')">Cancelar</button>` : ''}
+          ${o.status === 'entregue' ? `<button onclick="launchOrderAsCash('${o.id}')">Lançar no caixa</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+async function setOrderStatus(id, status) {
+    await db.collection('orders').doc(id).set({ status }, { merge: true });
+}
+
+async function launchOrderAsCash(id) {
+    const o = allOrders.find(x => x.id === id);
+    if (!o) return;
+    if (o.cashLaunched) {
+        alert('Este pedido já foi lançado no caixa.');
+        return;
+    }
+    await db.collection('cashflow').add({
+        type: 'entrada',
+        description: `Pedido de ${o.customerName || 'cliente'}`,
+        value: o.total,
+        date: new Date().toISOString().slice(0, 10),
+        relatedOrderId: id,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('orders').doc(id).set({ cashLaunched: true }, { merge: true });
+    alert('Lançado no financeiro!');
+}

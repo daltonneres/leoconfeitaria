@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doces do Léo | Confeitaria — Dois Vizinhos, PR</title>
+  <link rel="icon" href="assets/logocircular.jpeg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brandmark">
+        <img src="assets/logocircular.jpeg" alt="Doces do Léo" title="Doces do Léo — Confeitaria">
+        <span>Doces do Léo</span>
+      </div>
+      <button class="cart-pill" onclick="openCart()">
+        Sacola <span class="cart-count" id="nav-cart-count">0</span>
+      </button>
+    </div>
+  </nav>
+
+  <header class="profile">
+    <div class="cover">
+      <div class="cover-fade"></div>
+    </div>
+
+    <div class="profile-body">
+      <img class="avatar" src="assets/logocircular.jpeg" alt="Doces do Léo">
+
+      <div class="profile-top">
+        <h1>Doces do Léo</h1>
+        <span class="status-pill">Aberto agora</span>
+      </div>
+
+      <p class="tagline" id="store-tagline">Doces artesanais feitos especialmente para você! 💖</p>
+      <p class="info-line" id="store-info-line">Dois Vizinhos - PR · Retirada 15–30 minutos · Delivery 30–60 minutos</p>
+
+      <div class="profile-actions">
+        <a class="hero-cta" href="#cardapio">Ver cardápio</a>
+        <a class="whatsapp-link" href="https://wa.me/5546999266860" target="_blank" rel="noopener">Fale no WhatsApp</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="chips-bar">
+    <button class="chip-arrow chip-arrow-left" onclick="scrollChips(-1)" aria-label="Categorias anteriores">‹</button>
+    <div class="chips-inner" id="category-chips"><!-- chips injected by JS --></div>
+    <button class="chip-arrow chip-arrow-right" onclick="scrollChips(1)" aria-label="Mais categorias">›</button>
+  </div>
+
+  <section id="cardapio">
+    <div class="section-inner">
+      <div id="menu-root"><!-- categories injected by JS --></div>
+    </div>
+  </section>
+
+  <section id="como-funciona" class="how">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="eyebrow">Como funciona</span>
+        <h2>Do pedido até a sua mesa</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3>Monte sua sacola</h3>
+          <p>Escolha os doces no cardápio e ajuste as quantidades.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3>Confirme os dados</h3>
+          <p>Diga se é retirada ou delivery e deixe nome e telefone.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3>Fale com a gente</h3>
+          <p>O pedido abre pronto no WhatsApp — é só enviar pra confirmarmos.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="contato">
+    <div class="footer-inner">
+      <div>
+        <h3>Doces do Léo</h3>
+        <p class="value">Confeitaria artesanal<br>Dois Vizinhos — PR</p>
+      </div>
+      <div>
+        <h3>Atendimento</h3>
+        <p class="value">Segunda a sábado<br>13h30 às 18h</p>
+      </div>
+      <div>
+        <h3>Fale conosco</h3>
+        <p class="value"><a href="https://wa.me/5546999266860" target="_blank" rel="noopener">WhatsApp (46) 9
+            9926-6860</a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">© 2026 Doces do Léo Confeitaria — todos os direitos reservados.</div>
+  </footer>
+
+  <button class="cart-fab" id="cart-fab" onclick="openCart()">
+    Sacola <span class="cart-count" id="fab-cart-count">0</span> · <span id="fab-cart-total">R$ 0,00</span>
+  </button>
+
+  <div class="overlay" id="overlay" onclick="closeCart()"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h3>Sua sacola</h3>
+      <button class="drawer-close" onclick="closeCart()">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <div class="empty-msg" id="empty-msg">Sua sacola está vazia. Escolha algo gostoso no cardápio!</div>
+      <div id="cart-lines"></div>
+
+      <div style="margin-top:24px;" id="checkout-form" class="hidden">
+        <div class="fulfillment">
+          <button type="button" id="btn-retirada" onclick="setFulfillment('retirada')">Retirada</button>
+          <button type="button" id="btn-delivery" onclick="setFulfillment('delivery')">Delivery</button>
+        </div>
+
+        <div class="field">
+          <label for="f-nome">Nome</label>
+          <input id="f-nome" type="text" placeholder="Seu nome">
+        </div>
+        <div class="field">
+          <label for="f-telefone">Telefone</label>
+          <input id="f-telefone" type="tel" placeholder="(46) 9 9999-9999">
+        </div>
+        <div class="field" id="address-field">
+          <label for="f-endereco">Endereço para entrega</label>
+          <textarea id="f-endereco" placeholder="Rua, número, bairro, ponto de referência"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <p class="min-order-note" id="min-order-note" style="display:none;"></p>
+      <div class="subtotal-row">
+        <span>Total</span>
+        <strong id="drawer-total">R$ 0,00</strong>
+      </div>
+      <button class="whatsapp-btn" id="whatsapp-btn" onclick="sendToWhatsapp()" disabled>Finalizar pedido no
+        WhatsApp</button>
+      <p class="payment-note">O pagamento online chega em breve. Por enquanto, envie o pedido e combine o pagamento com
+        a gente pelo WhatsApp.</p>
+    </div>
+  </aside>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="script.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Painel — Doces do Léo</title>
+  <link rel="icon" href="assets/logocircular.jpeg" type="image/jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body class="admin-body">
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card">
+      <img class="login-logo" src="assets/logocircular.jpeg" alt="Doces do Léo">
+      <h1>Painel — Doces do Léo</h1>
+      <p class="login-sub">Entre com sua conta para gerenciar a loja.</p>
+      <div class="field">
+        <label for="login-email">E-mail</label>
+        <input id="login-email" type="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="login-password">Senha</label>
+        <input id="login-password" type="password" required autocomplete="current-password">
+      </div>
+      <p class="login-error" id="login-error"></p>
+      <button type="submit" class="btn-primary">Entrar</button>
+    </form>
+  </div>
+
+  <!-- ===================== APP ===================== -->
+  <div id="admin-app" class="admin-app hidden">
+
+    <header class="admin-topbar">
+      <div class="admin-brand">
+        <img src="assets/logocircular.jpeg" alt="Doces do Léo">
+        <span>Painel — Doces do Léo</span>
+      </div>
+
+      <div class="admin-store-toggle">
+        <span class="status-pill" id="admin-status-pill">—</span>
+        <div class="segmented" id="store-toggle">
+          <button data-mode="auto" onclick="setStoreMode('auto')">Automático</button>
+          <button data-mode="open" onclick="setStoreMode('open')">Forçar aberto</button>
+          <button data-mode="closed" onclick="setStoreMode('closed')">Forçar fechado</button>
+        </div>
+      </div>
+
+      <div class="admin-user">
+        <span id="admin-user-email"></span>
+        <button class="btn-ghost" onclick="logout()">Sair</button>
+      </div>
+    </header>
+
+    <nav class="admin-tabs">
+      <button class="tab-btn active" data-tab="pedidos" onclick="switchTab('pedidos')">Pedidos <span class="tab-badge" id="badge-pedidos"></span></button>
+      <button class="tab-btn" data-tab="produtos" onclick="switchTab('produtos')">Produtos</button>
+      <button class="tab-btn" data-tab="promocoes" onclick="switchTab('promocoes')">Promoções</button>
+      <button class="tab-btn" data-tab="financeiro" onclick="switchTab('financeiro')">Financeiro</button>
+      <button class="tab-btn" data-tab="config" onclick="switchTab('config')">Loja</button>
+    </nav>
+
+    <main class="admin-main">
+
+      <!-- ---------- PEDIDOS ---------- -->
+      <section class="tab-panel active" id="tab-pedidos">
+        <div class="panel-head">
+          <h2>Pedidos</h2>
+          <div class="order-filters" id="order-filters">
+            <button class="chip-filter active" data-status="all">Todos</button>
+            <button class="chip-filter" data-status="novo">Novos</button>
+            <button class="chip-filter" data-status="preparo">Em preparo</button>
+            <button class="chip-filter" data-status="pronto">Prontos</button>
+            <button class="chip-filter" data-status="entregue">Entregues</button>
+            <button class="chip-filter" data-status="cancelado">Cancelados</button>
+          </div>
+        </div>
+        <div id="orders-list" class="orders-list"></div>
+      </section>
+
+      <!-- ---------- PRODUTOS ---------- -->
+      <section class="tab-panel" id="tab-produtos">
+        <div class="panel-head">
+          <h2>Produtos</h2>
+          <div class="panel-actions">
+            <button class="btn-ghost" id="seed-btn" onclick="seedInitialMenu()">Importar cardápio inicial</button>
+            <button class="btn-primary" onclick="openProductModal()">+ Novo produto</button>
+          </div>
+        </div>
+        <div class="field inline-search">
+          <input id="product-search" type="text" placeholder="Buscar produto por nome ou categoria...">
+        </div>
+        <div id="products-list" class="products-list"></div>
+      </section>
+
+      <!-- ---------- PROMOÇÕES ---------- -->
+      <section class="tab-panel" id="tab-promocoes">
+        <div class="panel-head">
+          <h2>Promoções</h2>
+          <button class="btn-primary" onclick="openPromoModal()">+ Nova promoção</button>
+        </div>
+        <p class="hint-text">Promoções aqui aparecem como uma faixa em destaque no site. Para dar desconto direto no preço de um produto, edite o produto e preencha o "preço promocional".</p>
+        <div id="promos-list" class="promos-list"></div>
+      </section>
+
+      <!-- ---------- FINANCEIRO ---------- -->
+      <section class="tab-panel" id="tab-financeiro">
+        <div class="panel-head">
+          <h2>Financeiro (entradas e saídas)</h2>
+          <button class="btn-primary" onclick="openCashModal()">+ Novo lançamento</button>
+        </div>
+
+        <div class="cash-summary">
+          <div class="cash-card in">
+            <span>Entradas</span>
+            <strong id="cash-total-in">R$ 0,00</strong>
+          </div>
+          <div class="cash-card out">
+            <span>Saídas</span>
+            <strong id="cash-total-out">R$ 0,00</strong>
+          </div>
+          <div class="cash-card balance">
+            <span>Saldo</span>
+            <strong id="cash-balance">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <div id="cash-list" class="cash-list"></div>
+      </section>
+
+      <!-- ---------- LOJA / CONFIG ---------- -->
+      <section class="tab-panel" id="tab-config">
+        <div class="panel-head">
+          <h2>Dados da loja</h2>
+        </div>
+        <form id="store-config-form" class="store-config-form">
+          <div class="field">
+            <label>Frase de destaque (abaixo do nome)</label>
+            <input id="cfg-tagline" type="text">
+          </div>
+          <div class="field">
+            <label>Endereço / bairro exibido</label>
+            <input id="cfg-address" type="text">
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Tempo estimado de retirada</label>
+              <input id="cfg-pickup" type="text">
+            </div>
+            <div class="field">
+              <label>Tempo estimado de delivery</label>
+              <input id="cfg-delivery" type="text">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Pedido mínimo (R$, opcional)</label>
+              <input id="cfg-min-order" type="number" step="0.01" min="0">
+            </div>
+            <div class="field">
+              <label>Número do WhatsApp (só números, com DDI+DDD)</label>
+              <input id="cfg-whatsapp" type="text">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Abre às</label>
+              <input id="cfg-open-time" type="time">
+            </div>
+            <div class="field">
+              <label>Fecha às</label>
+              <input id="cfg-close-time" type="time">
+            </div>
+          </div>
+          <div class="field">
+            <label>Dias de funcionamento</label>
+            <div class="weekday-picker" id="weekday-picker">
+              <label><input type="checkbox" value="0"> Dom</label>
+              <label><input type="checkbox" value="1"> Seg</label>
+              <label><input type="checkbox" value="2"> Ter</label>
+              <label><input type="checkbox" value="3"> Qua</label>
+              <label><input type="checkbox" value="4"> Qui</label>
+              <label><input type="checkbox" value="5"> Sex</label>
+              <label><input type="checkbox" value="6"> Sáb</label>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Salvar dados da loja</button>
+          <p class="save-note" id="config-save-note"></p>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===================== MODAL PRODUTO ===================== -->
+  <div class="modal-overlay" id="product-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="product-modal-title">Novo produto</h3>
+        <button class="modal-close" onclick="closeProductModal()">&times;</button>
+      </div>
+      <form id="product-form" class="modal-body">
+        <input type="hidden" id="p-id">
+        <div class="field">
+          <label>Categoria</label>
+          <input id="p-category" list="category-options" required placeholder="Ex: Brownie">
+          <datalist id="category-options"></datalist>
+        </div>
+        <div class="field">
+          <label>Nome do produto</label>
+          <input id="p-name" type="text" required>
+        </div>
+        <div class="field">
+          <label>Descrição</label>
+          <textarea id="p-desc" rows="2"></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Preço (R$)</label>
+            <input id="p-price" type="number" step="0.01" min="0" required>
+          </div>
+          <div class="field">
+            <label>Preço promocional (R$, opcional)</label>
+            <input id="p-promo-price" type="number" step="0.01" min="0">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Estoque (deixe em branco = ilimitado)</label>
+            <input id="p-stock" type="number" step="1" min="0">
+          </div>
+          <div class="field">
+            <label>Selo (opcional, ex: "Mais pedido")</label>
+            <input id="p-badge" type="text">
+          </div>
+        </div>
+        <div class="field">
+          <label>URL da foto (opcional)</label>
+          <input id="p-img" type="text" placeholder="https://...">
+        </div>
+        <div class="field checkbox-field">
+          <label><input type="checkbox" id="p-active" checked> Ativo (visível no cardápio)</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="p-delete-btn" onclick="deleteCurrentProduct()">Excluir</button>
+          <button type="submit" class="btn-primary">Salvar produto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL PROMOÇÃO ===================== -->
+  <div class="modal-overlay" id="promo-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="promo-modal-title">Nova promoção</h3>
+        <button class="modal-close" onclick="closePromoModal()">&times;</button>
+      </div>
+      <form id="promo-form" class="modal-body">
+        <input type="hidden" id="pr-id">
+        <div class="field">
+          <label>Texto da promoção (aparece na faixa do site)</label>
+          <input id="pr-title" type="text" required placeholder="Ex: Sexta é dia de brownie com 20% off">
+        </div>
+        <div class="field">
+          <label>Detalhes (uso interno, opcional)</label>
+          <textarea id="pr-desc" rows="2"></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Início (opcional)</label>
+            <input id="pr-start" type="date">
+          </div>
+          <div class="field">
+            <label>Fim (opcional)</label>
+            <input id="pr-end" type="date">
+          </div>
+        </div>
+        <div class="field checkbox-field">
+          <label><input type="checkbox" id="pr-active" checked> Ativa</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="pr-delete-btn" onclick="deleteCurrentPromo()">Excluir</button>
+          <button type="submit" class="btn-primary">Salvar promoção</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL FINANCEIRO ===================== -->
+  <div class="modal-overlay" id="cash-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Novo lançamento</h3>
+        <button class="modal-close" onclick="closeCashModal()">&times;</button>
+      </div>
+      <form id="cash-form" class="modal-body">
+        <div class="field">
+          <label>Tipo</label>
+          <div class="segmented" id="cash-type-toggle">
+            <button type="button" data-type="entrada" class="active" onclick="setCashType('entrada')">Entrada</button>
+            <button type="button" data-type="saida" onclick="setCashType('saida')">Saída</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Descrição</label>
+          <input id="c-desc" type="text" required placeholder="Ex: Compra de ingredientes">
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Valor (R$)</label>
+            <input id="c-value" type="number" step="0.01" min="0" required>
+          </div>
+          <div class="field">
+            <label>Data</label>
+            <input id="c-date" type="date" required>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Salvar lançamento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+
+</html>
