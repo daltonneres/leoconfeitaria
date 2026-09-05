@@ -19,12 +19,15 @@
   <nav class="nav">
     <div class="nav-inner">
       <div class="brandmark">
-        <img src="assets/logocircular.jpeg" alt="Doces do Léo" title="Doces do Léo — Confeitaria">
+        <img src="assets/logocircular.jpeg" alt="Doces do Léo — Confeitaria" title="Doces do Léo — Confeitaria">
         <span>Doces do Léo</span>
       </div>
-      <button class="cart-pill" onclick="openCart()">
-        Sacola <span class="cart-count" id="nav-cart-count">0</span>
-      </button>
+      <div class="nav-actions">
+        <button class="client-area-btn" onclick="openClienteArea()">👤 <span>Área do cliente</span></button>
+        <button class="cart-pill" onclick="openCart()">
+          Sacola <span class="cart-count" id="nav-cart-count">0</span>
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -44,6 +47,12 @@
       <p class="tagline" id="store-tagline">Doces artesanais feitos especialmente para você! 💖</p>
       <p class="info-line" id="store-info-line">Dois Vizinhos - PR · Retirada 15–30 minutos · Delivery 30–60 minutos</p>
 
+      <div class="promo-banner" id="promo-banner">
+        <span class="promo-chip">Pedido mínimo R$ 10,00</span>
+        <span class="promo-chip">Frete fixo R$ 10,00</span>
+        <span class="promo-chip">Ganhe R$ 0,20 de cashback a cada pedido, válido por 30 dias</span>
+      </div>
+
       <div class="profile-actions">
         <a class="hero-cta" href="#cardapio">Ver cardápio</a>
         <a class="whatsapp-link" href="https://wa.me/5546999266860" target="_blank" rel="noopener">Fale no WhatsApp</a>
@@ -51,7 +60,7 @@
     </div>
   </header>
 
-  <div class="chips-bar">
+  <div class="chips-bar" id="chips-bar">
     <button class="chip-arrow chip-arrow-left" onclick="scrollChips(-1)" aria-label="Categorias anteriores">‹</button>
     <div class="chips-inner" id="category-chips"><!-- chips injected by JS --></div>
     <button class="chip-arrow chip-arrow-right" onclick="scrollChips(1)" aria-label="Mais categorias">›</button>
@@ -103,9 +112,15 @@
         <h3>Fale conosco</h3>
         <p class="value"><a href="https://wa.me/5546999266860" target="_blank" rel="noopener">WhatsApp (46) 9
             9926-6860</a></p>
+        <p class="value"><a href="https://www.instagram.com/doces_do_leo_confeitaria" target="_blank"
+            rel="noopener">Instagram @doces_do_leo_confeitaria</a></p>
       </div>
     </div>
-    <div class="footer-bottom">© 2026 Doces do Léo Confeitaria — todos os direitos reservados.</div>
+    <div class="footer-bottom">
+      © 2026 Doces do Léo Confeitaria — todos os direitos reservados.<br>
+      <a class="dev-credit" href="https://linkneres.vercel.app/" target="_blank" rel="noopener">Desenvolvido por
+        Dalton José Neres | Desenvolvedor Full Stack</a>
+    </div>
   </footer>
 
   <button class="cart-fab" id="cart-fab" onclick="openCart()">
@@ -135,8 +150,50 @@
         <div class="field">
           <label for="f-telefone">Telefone</label>
           <input id="f-telefone" type="tel" placeholder="(46) 9 9999-9999">
+          <span class="field-hint">Se você tiver cashback disponível, ele é aplicado automaticamente.</span>
         </div>
-        <div class="field" id="address-field">
+        <div class="field">
+          <label for="f-pagamento">Forma de pagamento</label>
+          <select id="f-pagamento">
+            <option value="">Selecione</option>
+            <option value="pix">Pix</option>
+            <option value="dinheiro">Dinheiro</option>
+          </select>
+        </div>
+        <div class="field" id="bairro-field" style="display:none;">
+          <label for="f-bairro">Bairro</label>
+          <select id="f-bairro">
+            <option value="">Selecione o bairro</option>
+            <option value="Araucária">Araucária</option>
+            <option value="Attílio Fontana">Attílio Fontana</option>
+            <option value="Canarinho">Canarinho</option>
+            <option value="da Luz">da Luz</option>
+            <option value="das Torres">das Torres</option>
+            <option value="Esperança">Esperança</option>
+            <option value="Jardim Concórdia">Jardim Concórdia</option>
+            <option value="Jardim da Colina">Jardim da Colina</option>
+            <option value="Jardim Marcante">Jardim Marcante</option>
+            <option value="Jirau Alto">Jirau Alto</option>
+            <option value="Margarida Galvan">Margarida Galvan</option>
+            <option value="Nossa Senhora Aparecida">Nossa Senhora Aparecida</option>
+            <option value="Nossa Senhora de Lurdes">Nossa Senhora de Lurdes</option>
+            <option value="Novo Horizonte">Novo Horizonte</option>
+            <option value="Pinheirinho">Pinheirinho</option>
+            <option value="Sagrada Família">Sagrada Família</option>
+            <option value="Santa Luzia">Santa Luzia</option>
+            <option value="São Francisco de Assis">São Francisco de Assis</option>
+            <option value="São Francisco Xavier">São Francisco Xavier</option>
+            <option value="São Judas Tadeu">São Judas Tadeu</option>
+            <option value="São Luiz">São Luiz</option>
+            <option value="Sol Nascente">Sol Nascente</option>
+            <option value="Verdes Campos">Verdes Campos</option>
+            <option value="Vitória">Vitória</option>
+            <option value="Centro">Centro</option>
+            <option value="Centro Norte">Centro Norte</option>
+            <option value="Centro Sul">Centro Sul</option>
+          </select>
+        </div>
+        <div class="field" id="address-field" style="display:none;">
           <label for="f-endereco">Endereço para entrega</label>
           <textarea id="f-endereco" placeholder="Rua, número, bairro, ponto de referência"></textarea>
         </div>
@@ -144,6 +201,10 @@
     </div>
     <div class="drawer-footer">
       <p class="min-order-note" id="min-order-note" style="display:none;"></p>
+      <div class="cashback-applied-row hidden" id="cashback-applied-row">
+        <span>Cashback aplicado</span>
+        <strong id="cashback-applied-value">− R$ 0,00</strong>
+      </div>
       <div class="subtotal-row">
         <span>Total</span>
         <strong id="drawer-total">R$ 0,00</strong>
@@ -154,6 +215,40 @@
         a gente pelo WhatsApp.</p>
     </div>
   </aside>
+
+  <div class="overlay" id="cliente-overlay" onclick="closeClienteArea()"></div>
+  <aside class="drawer" id="cliente-drawer">
+    <div class="drawer-head">
+      <h3>Área do cliente</h3>
+      <button class="drawer-close" onclick="closeClienteArea()">&times;</button>
+    </div>
+    <div class="drawer-body" id="cliente-drawer-body">
+      <div id="cliente-form">
+        <p style="font-size:.88rem;color:var(--brown-700);margin-bottom:18px;">Informe seu nome e telefone para ver seus pedidos e o seu cashback disponível.</p>
+        <div class="field">
+          <label for="c-nome">Nome</label>
+          <input id="c-nome" type="text" placeholder="Seu nome">
+        </div>
+        <div class="field">
+          <label for="c-telefone">Telefone</label>
+          <input id="c-telefone" type="tel" placeholder="(46) 9 9999-9999">
+        </div>
+        <button class="whatsapp-btn" id="cliente-consultar-btn" onclick="lookupCliente()">Consultar</button>
+        <p id="cliente-error" class="cliente-error"></p>
+      </div>
+      <div id="cliente-results" class="hidden"></div>
+    </div>
+  </aside>
+
+  <div class="promo-popup-overlay" id="promo-popup" aria-hidden="true" onclick="if (event.target === this) closePromotionPopup()">
+    <section class="promo-popup-card" role="dialog" aria-modal="true" aria-labelledby="promo-popup-title">
+      <button class="promo-popup-close" type="button" onclick="closePromotionPopup()" aria-label="Fechar promoções">&times;</button>
+      <span class="promo-popup-eyebrow">Oferta especial</span>
+      <h2 id="promo-popup-title">Promoções para você</h2>
+      <div class="promo-popup-list" id="promo-popup-list"></div>
+      <button class="promo-popup-action" type="button" onclick="closePromotionPopup(); document.getElementById('cardapio').scrollIntoView({ behavior: 'smooth' })">Ver cardápio</button>
+    </section>
+  </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>

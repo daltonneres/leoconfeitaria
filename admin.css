@@ -465,6 +465,7 @@
     gap: 10px;
 }
 
+
 .product-row {
     background: #fff;
     border: 1px solid var(--line-dark);
@@ -546,6 +547,95 @@
 .flag.promo {
     background: var(--caramel);
     color: #fff;
+}
+
+/* ===================== CLIENTES ===================== */
+.clients-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.client-row {
+    background: #fff;
+    border: 1px solid var(--line-dark);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.client-rank {
+    width: 26px;
+    flex-shrink: 0;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--brown-700);
+}
+
+.client-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.client-name {
+    font-weight: 500;
+    font-size: .95rem;
+}
+
+.client-phone {
+    font-size: .78rem;
+    color: var(--brown-700);
+}
+
+.client-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.client-stat {
+    font-size: .78rem;
+    color: var(--brown-700);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.client-stat strong {
+    display: block;
+    color: var(--brown-900);
+    font-size: .9rem;
+}
+
+.client-cashback {
+    font-size: .76rem;
+    padding: 5px 12px;
+    border-radius: 100px;
+    background: rgba(122, 139, 111, .2);
+    color: var(--sage);
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.client-cashback.zero {
+    background: var(--line-dark);
+    color: var(--brown-700);
+}
+
+@media (max-width: 720px) {
+    .client-row {
+        flex-wrap: wrap;
+    }
+
+    .client-stats {
+        width: 100%;
+        justify-content: space-between;
+    }
 }
 
 /* ===================== PROMOS ===================== */

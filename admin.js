@@ -118,6 +118,7 @@ function startListeners() {
     listenersStarted = true;
     listenStoreConfig();
     listenProducts();
+    listenCustomers();
     listenPromotions();
     listenCashflow();
     listenOrders();
@@ -288,6 +289,15 @@ function closeProductModal() {
     document.getElementById('product-modal').classList.remove('open');
 }
 
+function normalizeProductImageUrl(url) {
+    if (!url) return null;
+    const driveFile = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
+    const driveId = driveFile?.[1] || new URL(url).searchParams.get('id');
+    return driveId && url.includes('drive.google.com')
+        ? `https://drive.google.com/uc?export=view&id=${driveId}`
+        : url;
+}
+
 document.getElementById('product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('p-id').value;
@@ -308,7 +318,7 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
         promoPrice: promoVal ? Number(promoVal) : null,
         stock: stockVal ? Number(stockVal) : null,
         badge: document.getElementById('p-badge').value.trim() || null,
-        img: document.getElementById('p-img').value.trim() || null,
+        img: normalizeProductImageUrl(document.getElementById('p-img').value.trim()),
         active: document.getElementById('p-active').checked
     };
 
@@ -329,7 +339,12 @@ async function deleteCurrentProduct() {
 }
 
 async function seedInitialMenu() {
-    if (!confirm('Isso vai adicionar os itens do cardápio inicial ao banco de dados (sem apagar produtos já existentes). Continuar?')) return;
+    const totalItems = SEED_MENU.reduce((total, category) => total + category.items.length, 0);
+    if (!auth?.currentUser) {
+        alert('Sua sessão expirou. Entre novamente no painel antes de importar o cardápio.');
+        return;
+    }
+    if (!confirm(`Isso vai adicionar ${totalItems} itens do cardápio inicial ao banco de dados (sem apagar produtos já existentes). Continuar?`)) return;
     const btn = document.getElementById('seed-btn');
     btn.disabled = true;
     btn.textContent = 'Importando...';
@@ -354,10 +369,20 @@ async function seedInitialMenu() {
             });
         });
         await batch.commit();
-        alert('Cardápio importado com sucesso!');
+        alert(`${totalItems} itens do cardápio foram importados com sucesso!`);
     } catch (err) {
         console.error(err);
-        alert('Ocorreu um erro ao importar. Veja o console para detalhes.');
+        let message = 'Não foi possível importar o cardápio agora.';
+        if (err.code === 'permission-denied') {
+            message += ' O Firebase recusou a gravação para esta conta. Verifique as regras do Firestore e se o usuário logado tem permissão de escrita.';
+        } else if (err.code === 'unauthenticated') {
+            message += ' Sua sessão expirou. Entre novamente no painel e tente de novo.';
+        } else if (err.code === 'unavailable') {
+            message += ' Não foi possível conectar ao Firebase. Confira sua conexão e tente novamente.';
+        } else if (err.message) {
+            message += ` Detalhe: ${err.message}`;
+        }
+        alert(message);
     }
     btn.disabled = false;
     btn.textContent = 'Importar cardápio inicial';
@@ -549,6 +574,8 @@ function renderOrders() {
     const newCount = allOrders.filter(o => o.status === 'novo').length;
     document.getElementById('badge-pedidos').textContent = newCount || '';
 
+    renderClients();
+
     const list = orderFilter === 'all' ? allOrders : allOrders.filter(o => o.status === orderFilter);
     const root = document.getElementById('orders-list');
     if (list.length === 0) {
@@ -572,6 +599,8 @@ function renderOrders() {
         <div class="order-items">${itemsHtml}</div>
         <div class="order-meta">
           ${o.fulfillment === 'delivery' ? `Delivery — ${o.address || ''}` : 'Retirada no local'} · Tel: ${o.customerPhone || '-'}
+          · Pagamento: ${o.paymentMethod === 'pix' ? 'Pix' : o.paymentMethod === 'dinheiro' ? 'Dinheiro' : 'não informado'}
+          ${o.cashbackUsed ? ` · Cashback usado: −${fmtBRL(o.cashbackUsed)}` : ''}
         </div>
         <div class="order-total">${fmtBRL(o.total)}</div>
         <div class="order-actions">
@@ -586,6 +615,131 @@ function renderOrders() {
 
 async function setOrderStatus(id, status) {
     await db.collection('orders').doc(id).set({ status }, { merge: true });
+}
+
+/* ================= CLIENTES ================= */
+let clientSort = 'orders';
+let clientSearchTerm = '';
+let registeredCustomers = [];
+
+function listenCustomers() {
+    db.collection('customers').onSnapshot(snap => {
+        registeredCustomers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderClients();
+    }, err => console.error('Erro ao carregar clientes cadastrados:', err));
+}
+
+function normalizePhoneAdmin(phone) {
+    return (phone || '').replace(/\D/g, '');
+}
+
+document.getElementById('client-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip-filter');
+    if (!btn) return;
+    clientSort = btn.dataset.sort;
+    document.querySelectorAll('#client-filters .chip-filter').forEach(b => b.classList.toggle('active', b === btn));
+    renderClients();
+});
+
+document.getElementById('client-search').addEventListener('input', (e) => {
+    clientSearchTerm = e.target.value.trim().toLowerCase();
+    renderClients();
+});
+
+function computeClients() {
+    const now = new Date();
+    const byPhone = {};
+
+    registeredCustomers.forEach(customer => {
+        const phone = customer.phoneNormalized || normalizePhoneAdmin(customer.phone);
+        if (!phone) return;
+        byPhone[phone] = {
+            phone,
+            phoneDisplay: customer.phone || phone,
+            name: customer.name || 'Cliente',
+            totalOrders: 0,
+            totalSpent: 0,
+            cashbackAvailable: 0,
+            lastOrderAt: null
+        };
+    });
+
+    allOrders.forEach(o => {
+        const phone = o.customerPhoneNormalized || normalizePhoneAdmin(o.customerPhone);
+        if (!phone) return;
+
+        if (!byPhone[phone]) {
+            byPhone[phone] = {
+                phone,
+                phoneDisplay: o.customerPhone || phone,
+                name: o.customerName || 'Cliente',
+                totalOrders: 0,
+                totalSpent: 0,
+                cashbackAvailable: 0,
+                lastOrderAt: null
+            };
+        }
+        const c = byPhone[phone];
+
+        const createdAt = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : null;
+        if (createdAt && (!c.lastOrderAt || createdAt > c.lastOrderAt)) {
+            c.lastOrderAt = createdAt;
+            c.name = o.customerName || c.name;
+            c.phoneDisplay = o.customerPhone || c.phoneDisplay;
+        }
+
+        if (o.status !== 'cancelado') {
+            c.totalOrders += 1;
+            c.totalSpent += o.total || 0;
+        }
+
+        if (o.cashbackAmount && !o.cashbackRedeemed) {
+            const expiresAt = o.cashbackExpiresAt && o.cashbackExpiresAt.toDate ? o.cashbackExpiresAt.toDate() : null;
+            if (expiresAt && expiresAt > now) {
+                c.cashbackAvailable += o.cashbackAmount;
+            }
+        }
+    });
+
+    return Object.values(byPhone);
+}
+
+function renderClients() {
+    let clients = computeClients();
+
+    if (clientSearchTerm) {
+        clients = clients.filter(c =>
+            c.name.toLowerCase().includes(clientSearchTerm) || c.phoneDisplay.includes(clientSearchTerm)
+        );
+    }
+
+    clients.sort((a, b) => {
+        if (clientSort === 'cashback') return b.cashbackAvailable - a.cashbackAvailable;
+        if (clientSort === 'spent') return b.totalSpent - a.totalSpent;
+        if (clientSort === 'recent') return (b.lastOrderAt || 0) - (a.lastOrderAt || 0);
+        return b.totalOrders - a.totalOrders;
+    });
+
+    const root = document.getElementById('clients-list');
+    if (clients.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum cliente encontrado.</p>`;
+        return;
+    }
+
+    root.innerHTML = clients.map((c, i) => `
+    <div class="client-row">
+      <div class="client-rank">${i + 1}º</div>
+      <div class="client-info">
+        <div class="client-name">${c.name}</div>
+        <div class="client-phone">${c.phoneDisplay}</div>
+      </div>
+      <div class="client-stats">
+        <div class="client-stat">${c.totalOrders} pedido${c.totalOrders === 1 ? '' : 's'}<strong>${fmtBRL(c.totalSpent)}</strong></div>
+        <span class="client-cashback ${c.cashbackAvailable > 0 ? '' : 'zero'}">${fmtBRL(c.cashbackAvailable)} cashback</span>
+        <a class="wa-link" href="${whatsappLinkFor(c.phoneDisplay)}" target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function launchOrderAsCash(id) {

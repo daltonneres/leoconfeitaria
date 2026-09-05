@@ -65,6 +65,7 @@
       <button class="tab-btn active" data-tab="pedidos" onclick="switchTab('pedidos')">Pedidos <span class="tab-badge" id="badge-pedidos"></span></button>
       <button class="tab-btn" data-tab="produtos" onclick="switchTab('produtos')">Produtos</button>
       <button class="tab-btn" data-tab="promocoes" onclick="switchTab('promocoes')">Promoções</button>
+      <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')">Clientes</button>
       <button class="tab-btn" data-tab="financeiro" onclick="switchTab('financeiro')">Financeiro</button>
       <button class="tab-btn" data-tab="config" onclick="switchTab('config')">Loja</button>
     </nav>
@@ -110,6 +111,23 @@
         </div>
         <p class="hint-text">Promoções aqui aparecem como uma faixa em destaque no site. Para dar desconto direto no preço de um produto, edite o produto e preencha o "preço promocional".</p>
         <div id="promos-list" class="promos-list"></div>
+      </section>
+
+      <!-- ---------- CLIENTES ---------- -->
+      <section class="tab-panel" id="tab-clientes">
+        <div class="panel-head">
+          <h2>Clientes</h2>
+        </div>
+        <div class="field inline-search">
+          <input id="client-search" type="text" placeholder="Buscar cliente por nome ou telefone...">
+        </div>
+        <div class="order-filters" id="client-filters">
+          <button class="chip-filter active" data-sort="orders">Mais pedidos</button>
+          <button class="chip-filter" data-sort="cashback">Mais cashback</button>
+          <button class="chip-filter" data-sort="spent">Maior gasto</button>
+          <button class="chip-filter" data-sort="recent">Mais recentes</button>
+        </div>
+        <div id="clients-list" class="clients-list"></div>
       </section>
 
       <!-- ---------- FINANCEIRO ---------- -->
@@ -244,8 +262,9 @@
           </div>
         </div>
         <div class="field">
-          <label>URL da foto (opcional)</label>
-          <input id="p-img" type="text" placeholder="https://...">
+          <label for="p-img">Link da foto (opcional)</label>
+          <input id="p-img" type="url" placeholder="https://drive.google.com/...">
+          <span class="field-hint">Envie a foto para a pasta do Drive e cole aqui o link público. Links do Drive são convertidos automaticamente para exibição no cardápio.</span>
         </div>
         <div class="field checkbox-field">
           <label><input type="checkbox" id="p-active" checked> Ativo (visível no cardápio)</label>
