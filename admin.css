@@ -88,6 +88,10 @@
     color: var(--cream);
 }
 
+#sound-toggle-btn.sound-off {
+    opacity: .55;
+}
+
 .btn-danger {
     background: transparent;
     border: 1px solid #b23b3b;
@@ -384,6 +388,32 @@
     text-transform: uppercase;
     letter-spacing: .04em;
     white-space: nowrap;
+}
+
+.order-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.payment-status-pill {
+    font-size: .72rem;
+    padding: 4px 12px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+
+.payment-status-pill.pendente {
+    background: rgba(178, 59, 59, .15);
+    color: #b23b3b;
+}
+
+.payment-status-pill.pago {
+    background: rgba(122, 139, 111, .25);
+    color: var(--sage);
 }
 
 .order-status-pill.novo {
@@ -820,8 +850,93 @@
 }
 
 #p-delete-btn,
-#pr-delete-btn {
+#pr-delete-btn,
+#cat-delete-btn {
     display: none;
+}
+
+/* ===================== CATEGORIAS ===================== */
+.category-select-row {
+    display: flex;
+    gap: 8px;
+}
+
+.category-select-row select {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--line-dark);
+    border-radius: 8px;
+    background: #fff;
+    font-family: inherit;
+    font-size: .92rem;
+    color: var(--brown-900);
+}
+
+.category-select-row .btn-ghost {
+    flex-shrink: 0;
+    width: auto;
+    white-space: nowrap;
+}
+
+.categories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.category-row {
+    background: #fff;
+    border: 1px solid var(--line-dark);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.category-order-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.category-order-btns button {
+    width: 24px;
+    height: 20px;
+    font-size: .7rem;
+    line-height: 1;
+    border: 1px solid var(--line-dark);
+    border-radius: 5px;
+    color: var(--brown-700);
+}
+
+.category-order-btns button:hover {
+    background: var(--brown-800);
+    color: var(--cream);
+}
+
+.category-order-btns button:disabled {
+    opacity: .3;
+    cursor: default;
+}
+
+.category-order-btns button:disabled:hover {
+    background: none;
+    color: var(--brown-700);
+}
+
+.category-row .cat-name {
+    flex: 1;
+    font-weight: 500;
+    font-size: .95rem;
+    cursor: pointer;
+}
+
+.category-row .cat-count {
+    font-size: .78rem;
+    color: var(--brown-700);
+    white-space: nowrap;
 }
 
 /* ===================== RESPONSIVE ===================== */
@@ -854,5 +969,61 @@
     .order-card-head {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .order-pills {
+        justify-content: flex-start;
+    }
+
+    .segmented button {
+        padding: 6px 10px;
+        font-size: .74rem;
+    }
+
+    .admin-store-toggle {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .admin-user {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .modal-actions .btn-primary,
+    .modal-actions .btn-danger {
+        width: 100%;
+    }
+
+    .order-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .order-actions button,
+    .order-actions a.wa-link {
+        text-align: center;
+    }
+
+    .client-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .cash-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .cash-row > div:last-child {
+        width: 100%;
+        justify-content: space-between;
     }
 }

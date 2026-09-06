@@ -17,11 +17,13 @@ let STORE_INFO = {
     manualStatus: "auto", // "auto" | "open" | "closed" — definido pelo Léo no painel
     openDays: [1, 2, 3, 4, 5, 6],
     openTime: "13:30",
-    closeTime: "18:00"
+    closeTime: "18:00",
+    pixKey: ""
 };
 
 let MENU = []; // preenchido em tempo real a partir da coleção "products"
 let PROMOTIONS = []; // preenchido a partir da coleção "promotions"
+let CATEGORIES = []; // preenchido a partir da coleção "categories" — define a ordem do cardápio
 
 /* ================= STATE (carrinho em memória — sem localStorage) ================= */
 let cart = {}; // { itemId: qty }
@@ -75,8 +77,15 @@ function renderStatus() {
 
 /* ================= INFO BAR ================= */
 function renderStoreInfo() {
-    const parts = [STORE_INFO.address, `Retirada ${STORE_INFO.pickupEstimate}`, `Delivery ${STORE_INFO.deliveryEstimate}`];
-    document.getElementById('store-info-line').textContent = parts.join(' · ');
+    const parts = [STORE_INFO.address, `Retirada ${STORE_INFO.pickupEstimate}`, `Delivery ${STORE_INFO.deliveryEstimate}`].filter(Boolean);
+    const infoLineEl = document.getElementById('store-info-line');
+    infoLineEl.innerHTML = '';
+    parts.forEach(part => {
+        const chip = document.createElement('span');
+        chip.className = 'info-chip';
+        chip.textContent = part; // textContent evita injeção de HTML
+        infoLineEl.appendChild(chip);
+    });
     document.getElementById('store-tagline').textContent = STORE_INFO.tagline;
 
     const minOrderDetail = document.getElementById('min-order-detail');
@@ -166,9 +175,29 @@ function scrollChips(direction) {
 }
 
 /* ================= RENDER MENU ================= */
+function normalizeProductImageUrl(url) {
+    if (!url) return null;
+    if (!url.includes('drive.google.com')) return url;
+    const driveFile = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
+    let driveId = driveFile?.[1];
+    if (!driveId) {
+        try {
+            driveId = new URL(url).searchParams.get('id');
+        } catch (e) {
+            driveId = null;
+        }
+    }
+    // Formato "thumbnail" é o mais confiável para exibir publicamente
+    // (o antigo "uc?export=view" costuma ser bloqueado para quem
+    // acessa o site sem estar logado na mesma conta do Drive).
+    return driveId
+        ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000`
+        : url;
+}
+
 function productPhoto(item) {
     if (item.img) {
-        return `<img src="${item.img}" alt="${item.name}">`;
+        return `<img src="${normalizeProductImageUrl(item.img)}" alt="${item.name}">`;
     }
     const initials = item.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
     return `<span class="photo-placeholder">${initials}</span>`;
@@ -377,6 +406,58 @@ function setFulfillment(type) {
     document.getElementById('address-field').style.display = isDelivery ? 'block' : 'none';
 }
 
+/* ================= PIX ================= */
+function updatePixInfo() {
+    const paymentMethod = document.getElementById('f-pagamento').value;
+    const pixInfo = document.getElementById('pix-info');
+    if (!pixInfo) return;
+    if (paymentMethod === 'pix') {
+        document.getElementById('pix-key-value').textContent = STORE_INFO.pixKey || 'Chave Pix não configurada — fale com a gente pelo WhatsApp.';
+        pixInfo.classList.remove('hidden');
+    } else {
+        pixInfo.classList.add('hidden');
+    }
+}
+
+function copyPixKey() {
+    const key = STORE_INFO.pixKey || '';
+    if (!key) return;
+    const btn = document.getElementById('pix-copy-btn');
+    const showCopied = () => {
+        const original = btn.textContent;
+        btn.textContent = 'Copiado!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = original === 'Copiado!' ? 'Copiar' : original;
+            btn.classList.remove('copied');
+        }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(key).then(showCopied).catch(() => fallbackCopy(key, showCopied));
+    } else {
+        fallbackCopy(key, showCopied);
+    }
+}
+
+function fallbackCopy(text, onDone) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        onDone();
+    } catch (err) {
+        console.error('Não foi possível copiar a chave Pix:', err);
+    }
+    document.body.removeChild(textarea);
+}
+
+document.getElementById('f-pagamento').addEventListener('change', updatePixInfo);
+
 /* ================= CASHBACK: verifica saldo disponível pro telefone digitado ================= */
 async function refreshCashbackForPhone() {
     const telefone = document.getElementById('f-telefone').value.trim();
@@ -486,6 +567,7 @@ async function sendToWhatsapp() {
             customerPhoneNormalized: phoneDigits,
             address: fulfillment === 'delivery' ? endereco : null,
             status: 'novo',
+            paymentStatus: 'pendente',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             cashbackAmount,
             cashbackExpiresAt: firebase.firestore.Timestamp.fromDate(cashbackExpiresAt),
@@ -516,6 +598,9 @@ async function sendToWhatsapp() {
     msg += `Total: ${fmtBRL(total)}\n`;
     msg += `\nForma de recebimento: ${fulfillment === 'delivery' ? 'Delivery' : 'Retirada no local'}\n`;
     msg += `Forma de pagamento: ${paymentMethod === 'pix' ? 'Pix' : 'Dinheiro'}\n`;
+    if (paymentMethod === 'pix') {
+        msg += `📎 Envio o comprovante do Pix aqui em seguida!\n`;
+    }
     if (fulfillment === 'delivery') {
         msg += `Endereço: ${endereco}\n`;
     }
@@ -719,32 +804,45 @@ function listenStoreConfig() {
 }
 
 /* ================= FIRESTORE: PRODUTOS (tempo real) ================= */
+let PRODUCTS_BY_CATEGORY = {};
+
+function categoryOrderFor(name) {
+    const idx = CATEGORIES.findIndex(c => c.name === name);
+    return idx === -1 ? 999 : idx;
+}
+
+function rebuildMenu() {
+    MENU = Object.keys(PRODUCTS_BY_CATEGORY)
+        .sort((a, b) => categoryOrderFor(a) - categoryOrderFor(b) || a.localeCompare(b, 'pt-BR'))
+        .map(cat => ({
+            category: cat,
+            items: PRODUCTS_BY_CATEGORY[cat].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
+        }));
+    renderChips();
+    renderMenu();
+    renderCart();
+}
+
 function listenProducts() {
     db.collection('products').where('active', '==', true).onSnapshot(snap => {
         const byCategory = {};
-        const orderByCategory = {};
-
         snap.forEach(doc => {
             const d = doc.data();
             const cat = d.category || 'Outros';
-            if (!byCategory[cat]) {
-                byCategory[cat] = [];
-                orderByCategory[cat] = d.categoryOrder ?? 999;
-            }
+            if (!byCategory[cat]) byCategory[cat] = [];
             byCategory[cat].push({ id: doc.id, ...d });
         });
-
-        MENU = Object.keys(byCategory)
-            .sort((a, b) => (orderByCategory[a] - orderByCategory[b]) || a.localeCompare(b, 'pt-BR'))
-            .map(cat => ({
-                category: cat,
-                items: byCategory[cat].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
-            }));
-
-        renderChips();
-        renderMenu();
-        renderCart();
+        PRODUCTS_BY_CATEGORY = byCategory;
+        rebuildMenu();
     }, err => console.error('Erro ao carregar produtos:', err));
+}
+
+/* ================= FIRESTORE: CATEGORIAS (tempo real) ================= */
+function listenCategories() {
+    db.collection('categories').orderBy('order').onSnapshot(snap => {
+        CATEGORIES = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        rebuildMenu();
+    }, err => console.error('Erro ao carregar categorias:', err));
 }
 
 /* ================= FIRESTORE: PROMOÇÕES (tempo real) ================= */
@@ -765,6 +863,7 @@ setFulfillment('retirada');
 renderCart();
 
 listenStoreConfig();
+listenCategories();
 listenProducts();
 listenPromotions();
 

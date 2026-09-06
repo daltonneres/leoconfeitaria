@@ -56,14 +56,20 @@
       </div>
 
       <div class="admin-user">
+        <button class="btn-ghost" id="sound-toggle-btn" onclick="toggleOrderSound()" title="Ligar/desligar o som de novo pedido">
+          🔔 Som: <span id="sound-toggle-label">Ativado</span>
+        </button>
         <span id="admin-user-email"></span>
         <button class="btn-ghost" onclick="logout()">Sair</button>
       </div>
     </header>
 
+    <audio id="new-order-sound" src="assets/novo-pedido.mp3" preload="auto"></audio>
+
     <nav class="admin-tabs">
       <button class="tab-btn active" data-tab="pedidos" onclick="switchTab('pedidos')">Pedidos <span class="tab-badge" id="badge-pedidos"></span></button>
       <button class="tab-btn" data-tab="produtos" onclick="switchTab('produtos')">Produtos</button>
+      <button class="tab-btn" data-tab="categorias" onclick="switchTab('categorias')">Categorias</button>
       <button class="tab-btn" data-tab="promocoes" onclick="switchTab('promocoes')">Promoções</button>
       <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')">Clientes</button>
       <button class="tab-btn" data-tab="financeiro" onclick="switchTab('financeiro')">Financeiro</button>
@@ -101,6 +107,19 @@
           <input id="product-search" type="text" placeholder="Buscar produto por nome ou categoria...">
         </div>
         <div id="products-list" class="products-list"></div>
+      </section>
+
+      <!-- ---------- CATEGORIAS ---------- -->
+      <section class="tab-panel" id="tab-categorias">
+        <div class="panel-head">
+          <h2>Categorias</h2>
+          <div class="panel-actions">
+            <button class="btn-ghost" onclick="importCategoriesFromProducts()">Importar categorias dos produtos</button>
+            <button class="btn-primary" onclick="openCategoryModal()">+ Nova categoria</button>
+          </div>
+        </div>
+        <p class="hint-text">A ordem das categorias aqui é a mesma ordem em que elas aparecem no cardápio do site. Use as setas para reordenar.</p>
+        <div id="categories-list" class="categories-list"></div>
       </section>
 
       <!-- ---------- PROMOÇÕES ---------- -->
@@ -189,6 +208,10 @@
               <input id="cfg-whatsapp" type="text">
             </div>
           </div>
+          <div class="field">
+            <label>Chave Pix (exibida pro cliente ao finalizar pedido com Pix)</label>
+            <input id="cfg-pix-key" type="text" placeholder="CPF, e-mail, telefone ou chave aleatória">
+          </div>
           <div class="grid-2">
             <div class="field">
               <label>Abre às</label>
@@ -230,8 +253,12 @@
         <input type="hidden" id="p-id">
         <div class="field">
           <label>Categoria</label>
-          <input id="p-category" list="category-options" required placeholder="Ex: Brownie">
-          <datalist id="category-options"></datalist>
+          <div class="category-select-row">
+            <select id="p-category" required>
+              <option value="">Selecione uma categoria</option>
+            </select>
+            <button type="button" class="btn-ghost" onclick="openCategoryModal(null, true)">+ Nova</button>
+          </div>
         </div>
         <div class="field">
           <label>Nome do produto</label>
@@ -272,6 +299,27 @@
         <div class="modal-actions">
           <button type="button" class="btn-danger" id="p-delete-btn" onclick="deleteCurrentProduct()">Excluir</button>
           <button type="submit" class="btn-primary">Salvar produto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL CATEGORIA ===================== -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="category-modal-title">Nova categoria</h3>
+        <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      <form id="category-form" class="modal-body">
+        <input type="hidden" id="cat-id">
+        <div class="field">
+          <label>Nome da categoria</label>
+          <input id="cat-name" type="text" required placeholder="Ex: Brownie">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="cat-delete-btn" onclick="deleteCurrentCategory()">Excluir</button>
+          <button type="submit" class="btn-primary">Salvar categoria</button>
         </div>
       </form>
     </div>

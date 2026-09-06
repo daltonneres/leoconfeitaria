@@ -236,13 +236,21 @@ button {
 }
 
 .info-line {
-    display: inline-block;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
     margin-top: 12px;
+}
+
+.info-chip {
     padding: 7px 13px;
     border-radius: 100px;
     background: rgba(59, 40, 24, .055);
     font-size: .86rem;
     color: var(--brown-700);
+    white-space: nowrap;
 }
 
 .promo-banner {
@@ -576,6 +584,8 @@ button {
     overflow-x: auto;
     scroll-behavior: smooth;
     scrollbar-width: none;
+    justify-content: center;
+    justify-content: safe center;
 }
 
 .chips-inner::-webkit-scrollbar {
@@ -838,11 +848,17 @@ section {
     display: flex;
     gap: 36px;
     flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
 }
 
 .step {
     flex: 1 1 200px;
+    max-width: 240px;
     padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .step-num {
@@ -1133,6 +1149,47 @@ footer {
     display: none;
 }
 
+.pix-key-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pix-key-row span {
+    flex: 1;
+    min-width: 0;
+    word-break: break-all;
+    padding: 10px 12px;
+    border: 1px solid var(--line-dark);
+    border-radius: 8px;
+    background: #fff;
+    font-size: .88rem;
+    color: var(--brown-900);
+}
+
+.pix-copy-btn {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--brown-800);
+    color: var(--brown-800);
+    font-size: .82rem;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+}
+
+.pix-copy-btn:hover {
+    background: var(--brown-800);
+    color: var(--cream);
+}
+
+.pix-copy-btn.copied {
+    background: var(--sage);
+    border-color: var(--sage);
+    color: #fff;
+}
+
 .drawer-footer {
     border-top: 1px solid var(--line-dark);
     padding: 18px 24px 26px;
@@ -1246,8 +1303,12 @@ footer {
     }
 
     .info-line {
+        gap: 6px;
+    }
+
+    .info-chip {
         font-size: .8rem;
-        line-height: 1.5;
+        padding: 6px 12px;
     }
 
     .profile-actions {
@@ -1277,6 +1338,12 @@ footer {
 
     .steps {
         gap: 28px;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .step {
+        max-width: 320px;
     }
 
     .cart-fab {
@@ -1303,6 +1370,15 @@ footer {
 @media (max-width:400px) {
     .profile-top {
         flex-direction: column;
+    }
+
+    .info-line {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .info-chip {
+        width: fit-content;
     }
 
     .item-photo {

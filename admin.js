@@ -117,6 +117,7 @@ function startListeners() {
     if (listenersStarted) return;
     listenersStarted = true;
     listenStoreConfig();
+    listenCategories();
     listenProducts();
     listenCustomers();
     listenPromotions();
@@ -181,6 +182,7 @@ function fillConfigForm() {
     document.getElementById('cfg-delivery').value = c.deliveryEstimate || '';
     document.getElementById('cfg-min-order').value = c.minOrder || '';
     document.getElementById('cfg-whatsapp').value = c.whatsappNumber || '';
+    document.getElementById('cfg-pix-key').value = c.pixKey || '';
     document.getElementById('cfg-open-time').value = c.openTime || '13:30';
     document.getElementById('cfg-close-time').value = c.closeTime || '18:00';
     const days = c.openDays || [1, 2, 3, 4, 5, 6];
@@ -200,6 +202,7 @@ document.getElementById('store-config-form').addEventListener('submit', async (e
         deliveryEstimate: document.getElementById('cfg-delivery').value.trim(),
         minOrder: minOrderVal ? Number(minOrderVal) : null,
         whatsappNumber: document.getElementById('cfg-whatsapp').value.trim(),
+        pixKey: document.getElementById('cfg-pix-key').value.trim(),
         openTime: document.getElementById('cfg-open-time').value,
         closeTime: document.getElementById('cfg-close-time').value,
         openDays: days
@@ -210,22 +213,173 @@ document.getElementById('store-config-form').addEventListener('submit', async (e
     setTimeout(() => note.textContent = '', 2500);
 });
 
+/* ================= CATEGORIAS ================= */
+let allCategories = [];
+
+function listenCategories() {
+    db.collection('categories').orderBy('order').onSnapshot(snap => {
+        allCategories = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderCategoriesList();
+        populateProductCategorySelect();
+        renderProductsList(); // reordena produtos conforme a nova ordem de categorias
+    }, err => console.error('Erro ao carregar categorias:', err));
+}
+
+function categoryOrderFor(name) {
+    const idx = allCategories.findIndex(c => c.name === name);
+    return idx === -1 ? 999 : idx;
+}
+
+function populateProductCategorySelect(selected) {
+    const select = document.getElementById('p-category');
+    if (!select) return;
+    const current = selected !== undefined ? selected : select.value;
+    if (allCategories.length === 0) {
+        select.innerHTML = `<option value="">Nenhuma categoria cadastrada — crie uma primeiro</option>`;
+        return;
+    }
+    select.innerHTML = `<option value="">Selecione uma categoria</option>` +
+        allCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    if (current) select.value = current;
+}
+
+function renderCategoriesList() {
+    const root = document.getElementById('categories-list');
+    if (!root) return;
+    if (allCategories.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhuma categoria cadastrada ainda. Crie uma nova ou importe as categorias já usadas nos produtos.</p>`;
+        return;
+    }
+    root.innerHTML = allCategories.map((c, i) => {
+        const count = allProducts.filter(p => p.category === c.name).length;
+        return `
+      <div class="category-row">
+        <div class="category-order-btns">
+          <button type="button" ${i === 0 ? 'disabled' : ''} onclick="moveCategory('${c.id}', -1)" aria-label="Mover para cima">▲</button>
+          <button type="button" ${i === allCategories.length - 1 ? 'disabled' : ''} onclick="moveCategory('${c.id}', 1)" aria-label="Mover para baixo">▼</button>
+        </div>
+        <div class="cat-name" onclick="openCategoryModal('${c.id}')">${c.name}</div>
+        <span class="cat-count">${count} produto${count === 1 ? '' : 's'}</span>
+      </div>`;
+    }).join('');
+}
+
+async function moveCategory(id, direction) {
+    const idx = allCategories.findIndex(c => c.id === id);
+    const swapIdx = idx + direction;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= allCategories.length) return;
+    const a = allCategories[idx];
+    const b = allCategories[swapIdx];
+    const batch = db.batch();
+    batch.update(db.collection('categories').doc(a.id), { order: b.order ?? swapIdx });
+    batch.update(db.collection('categories').doc(b.id), { order: a.order ?? idx });
+    await batch.commit();
+}
+
+let categoryModalFromProduct = false;
+
+function openCategoryModal(id, fromProduct) {
+    categoryModalFromProduct = !!fromProduct;
+    const form = document.getElementById('category-form');
+    form.reset();
+    document.getElementById('cat-id').value = id || '';
+    document.getElementById('cat-delete-btn').style.display = id ? 'block' : 'none';
+    document.getElementById('category-modal-title').textContent = id ? 'Editar categoria' : 'Nova categoria';
+    if (id) {
+        const c = allCategories.find(x => x.id === id);
+        if (c) document.getElementById('cat-name').value = c.name || '';
+    }
+    document.getElementById('category-modal').classList.add('open');
+}
+
+function closeCategoryModal() {
+    document.getElementById('category-modal').classList.remove('open');
+}
+
+document.getElementById('category-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('cat-id').value;
+    const name = document.getElementById('cat-name').value.trim();
+    if (!name) return;
+
+    const duplicate = allCategories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== id);
+    if (duplicate) {
+        alert('Já existe uma categoria com esse nome.');
+        return;
+    }
+
+    if (id) {
+        const old = allCategories.find(c => c.id === id);
+        await db.collection('categories').doc(id).set({ name }, { merge: true });
+        // mantém os produtos já cadastrados apontando pro novo nome da categoria
+        if (old && old.name !== name) {
+            const affected = allProducts.filter(p => p.category === old.name);
+            if (affected.length > 0) {
+                const batch = db.batch();
+                affected.forEach(p => batch.update(db.collection('products').doc(p.id), { category: name }));
+                await batch.commit();
+            }
+        }
+    } else {
+        const maxOrder = allCategories.reduce((m, c) => Math.max(m, c.order ?? 0), -1);
+        await db.collection('categories').add({ name, order: maxOrder + 1 });
+        if (categoryModalFromProduct) {
+            // dá tempo do listener atualizar allCategories antes de selecionar a nova categoria
+            setTimeout(() => populateProductCategorySelect(name), 400);
+        }
+    }
+    closeCategoryModal();
+});
+
+async function deleteCurrentCategory() {
+    const id = document.getElementById('cat-id').value;
+    if (!id) return;
+    const cat = allCategories.find(c => c.id === id);
+    const count = cat ? allProducts.filter(p => p.category === cat.name).length : 0;
+    if (count > 0) {
+        alert(`Existem ${count} produto(s) nesta categoria. Mude a categoria deles antes de excluir.`);
+        return;
+    }
+    if (!confirm('Excluir esta categoria?')) return;
+    await db.collection('categories').doc(id).delete();
+    closeCategoryModal();
+}
+
+async function importCategoriesFromProducts() {
+    const existingNames = new Set(allCategories.map(c => c.name));
+    const productCats = [...new Set(allProducts.map(p => p.category).filter(Boolean))]
+        .filter(name => !existingNames.has(name));
+    if (productCats.length === 0) {
+        alert('Todas as categorias dos produtos já estão cadastradas.');
+        return;
+    }
+    // preserva a ordem que os produtos já tinham, quando existir
+    productCats.sort((a, b) => {
+        const orderA = allProducts.find(p => p.category === a)?.categoryOrder ?? 999;
+        const orderB = allProducts.find(p => p.category === b)?.categoryOrder ?? 999;
+        return orderA - orderB || a.localeCompare(b, 'pt-BR');
+    });
+    let nextOrder = allCategories.reduce((m, c) => Math.max(m, c.order ?? 0), -1) + 1;
+    const batch = db.batch();
+    productCats.forEach(name => {
+        const ref = db.collection('categories').doc();
+        batch.set(ref, { name, order: nextOrder });
+        nextOrder++;
+    });
+    await batch.commit();
+    alert(`${productCats.length} categoria(s) importada(s)!`);
+}
+
 /* ================= PRODUTOS ================= */
 let allProducts = [];
 
 function listenProducts() {
     db.collection('products').onSnapshot(snap => {
         allProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => (a.categoryOrder ?? 999) - (b.categoryOrder ?? 999) || a.category.localeCompare(b.category, 'pt-BR') || a.name.localeCompare(b.name, 'pt-BR'));
+            .sort((a, b) => categoryOrderFor(a.category) - categoryOrderFor(b.category) || (a.category || '').localeCompare(b.category || '', 'pt-BR') || a.name.localeCompare(b.name, 'pt-BR'));
         renderProductsList();
-        fillCategoryOptions();
+        renderCategoriesList();
     });
-}
-
-function fillCategoryOptions() {
-    const dl = document.getElementById('category-options');
-    const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
-    dl.innerHTML = cats.map(c => `<option value="${c}"></option>`).join('');
 }
 
 document.getElementById('product-search').addEventListener('input', renderProductsList);
@@ -248,7 +402,7 @@ function renderProductsList() {
         if (p.promoPrice != null && p.promoPrice < p.price) flags.push('<span class="flag promo">Promoção</span>');
         return `
       <div class="product-row" onclick="openProductModal('${p.id}')">
-        <div class="p-thumb">${p.img ? `<img src="${p.img}" alt="">` : '🍰'}</div>
+        <div class="p-thumb">${p.img ? `<img src="${normalizeProductImageUrl(p.img)}" alt="">` : '🍰'}</div>
         <div class="p-info">
           <div class="p-name">${p.name}</div>
           <div class="p-cat">${p.category || 'Sem categoria'}</div>
@@ -269,7 +423,7 @@ function openProductModal(id) {
     if (id) {
         const p = allProducts.find(x => x.id === id);
         if (p) {
-            document.getElementById('p-category').value = p.category || '';
+            populateProductCategorySelect(p.category || '');
             document.getElementById('p-name').value = p.name || '';
             document.getElementById('p-desc').value = p.desc || '';
             document.getElementById('p-price').value = p.price ?? '';
@@ -280,6 +434,7 @@ function openProductModal(id) {
             document.getElementById('p-active').checked = p.active !== false;
         }
     } else {
+        populateProductCategorySelect('');
         document.getElementById('p-active').checked = true;
     }
     document.getElementById('product-modal').classList.add('open');
@@ -291,10 +446,21 @@ function closeProductModal() {
 
 function normalizeProductImageUrl(url) {
     if (!url) return null;
+    if (!url.includes('drive.google.com')) return url;
     const driveFile = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
-    const driveId = driveFile?.[1] || new URL(url).searchParams.get('id');
-    return driveId && url.includes('drive.google.com')
-        ? `https://drive.google.com/uc?export=view&id=${driveId}`
+    let driveId = driveFile?.[1];
+    if (!driveId) {
+        try {
+            driveId = new URL(url).searchParams.get('id');
+        } catch (e) {
+            driveId = null;
+        }
+    }
+    // Formato "thumbnail" é o mais confiável para exibir publicamente
+    // (o antigo "uc?export=view" costuma ser bloqueado para visitantes
+    // que não estão logados na mesma conta Google do dono do arquivo).
+    return driveId
+        ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000`
         : url;
 }
 
@@ -305,13 +471,13 @@ document.getElementById('product-form').addEventListener('submit', async (e) => 
     const stockVal = document.getElementById('p-stock').value;
     const promoVal = document.getElementById('p-promo-price').value;
 
-    // mantém a ordem da categoria já existente, ou coloca no fim
-    const existingOrder = allProducts.find(p => p.category === category)?.categoryOrder;
-    const maxOrder = allProducts.reduce((m, p) => Math.max(m, p.categoryOrder ?? 0), 0);
+    if (!category) {
+        alert('Selecione uma categoria para o produto (crie uma nova pelo botão "+ Nova" se precisar).');
+        return;
+    }
 
     const payload = {
         category,
-        categoryOrder: existingOrder ?? (maxOrder + 1),
         name: document.getElementById('p-name').value.trim(),
         desc: document.getElementById('p-desc').value.trim(),
         price: Number(document.getElementById('p-price').value),
@@ -350,6 +516,16 @@ async function seedInitialMenu() {
     btn.textContent = 'Importando...';
     try {
         const batch = db.batch();
+        const existingCatNames = new Set(allCategories.map(c => c.name));
+        let nextCatOrder = allCategories.reduce((m, c) => Math.max(m, c.order ?? 0), -1) + 1;
+        SEED_MENU.forEach((cat) => {
+            if (!existingCatNames.has(cat.category)) {
+                const catRef = db.collection('categories').doc();
+                batch.set(catRef, { name: cat.category, order: nextCatOrder });
+                existingCatNames.add(cat.category);
+                nextCatOrder++;
+            }
+        });
         SEED_MENU.forEach((cat, catIndex) => {
             cat.items.forEach((item, itemIndex) => {
                 const ref = db.collection('products').doc(item.id);
@@ -542,12 +718,71 @@ function formatDateBR(iso) {
     return `${d}/${m}/${y}`;
 }
 
+/* ================= SOM DE NOVO PEDIDO ================= */
+let orderSoundEnabled = localStorage.getItem('doces-leo-order-sound') !== 'off';
+let orderSoundUnlocked = false;
+
+function updateSoundToggleUI() {
+    const label = document.getElementById('sound-toggle-label');
+    const btn = document.getElementById('sound-toggle-btn');
+    if (!label || !btn) return;
+    label.textContent = orderSoundEnabled ? 'Ativado' : 'Desativado';
+    btn.classList.toggle('sound-off', !orderSoundEnabled);
+}
+
+function toggleOrderSound() {
+    orderSoundEnabled = !orderSoundEnabled;
+    localStorage.setItem('doces-leo-order-sound', orderSoundEnabled ? 'on' : 'off');
+    updateSoundToggleUI();
+    if (orderSoundEnabled) unlockOrderSound();
+}
+
+// Navegadores só deixam tocar áudio depois de alguma interação do usuário na página.
+// Esse "desbloqueio" toca e pausa o áudio silenciosamente no primeiro clique.
+function unlockOrderSound() {
+    if (orderSoundUnlocked) return;
+    const audio = document.getElementById('new-order-sound');
+    if (!audio) return;
+    audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        orderSoundUnlocked = true;
+    }).catch(() => { /* ainda bloqueado, tenta de novo no próximo clique */ });
+}
+document.addEventListener('click', unlockOrderSound);
+updateSoundToggleUI();
+
+function playNewOrderSound() {
+    if (!orderSoundEnabled) return;
+    const audio = document.getElementById('new-order-sound');
+    if (!audio) return;
+    audio.currentTime = 0;
+    audio.play().catch(err => console.warn('Não foi possível tocar o som do novo pedido (o navegador pode estar bloqueando áudio automático):', err));
+}
+
 /* ================= PEDIDOS ================= */
 let allOrders = [];
 let orderFilter = 'all';
+let isFirstOrdersSnapshot = true;
+let knownOrderIds = new Set();
 
 function listenOrders() {
     db.collection('orders').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
+        if (isFirstOrdersSnapshot) {
+            // Na primeira carga (ex: acabou de abrir/logar no painel), só registra os
+            // pedidos existentes, sem tocar som — o som é só para pedidos que chegam depois.
+            snap.docs.forEach(doc => knownOrderIds.add(doc.id));
+            isFirstOrdersSnapshot = false;
+        } else {
+            let hasNewOrder = false;
+            snap.docChanges().forEach(change => {
+                if (change.type === 'added' && !knownOrderIds.has(change.doc.id)) {
+                    knownOrderIds.add(change.doc.id);
+                    hasNewOrder = true;
+                }
+            });
+            if (hasNewOrder) playNewOrderSound();
+        }
         allOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderOrders();
     }, err => console.error('Erro ao carregar pedidos:', err));
@@ -569,6 +804,7 @@ function whatsappLinkFor(phoneRaw) {
 
 const STATUS_LABELS = { novo: 'Novo', preparo: 'Em preparo', pronto: 'Pronto', entregue: 'Entregue', cancelado: 'Cancelado' };
 const NEXT_STATUS = { novo: 'preparo', preparo: 'pronto', pronto: 'entregue' };
+const PAYMENT_STATUS_LABELS = { pendente: 'Pagamento pendente', pago: 'Pago' };
 
 function renderOrders() {
     const newCount = allOrders.filter(o => o.status === 'novo').length;
@@ -587,6 +823,7 @@ function renderOrders() {
         const time = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString('pt-BR') : '';
         const itemsHtml = (o.items || []).map(i => `${i.qty}x ${i.name} — ${fmtBRL(i.price * i.qty)}`).join('<br>');
         const next = NEXT_STATUS[o.status];
+        const paymentStatus = o.paymentStatus || 'pendente';
         return `
       <div class="order-card">
         <div class="order-card-head">
@@ -594,7 +831,10 @@ function renderOrders() {
             <div class="order-customer">${o.customerName || 'Cliente'}</div>
             <div class="order-time">${time}</div>
           </div>
-          <span class="order-status-pill ${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+          <div class="order-pills">
+            <span class="order-status-pill ${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+            <span class="payment-status-pill ${paymentStatus}">${PAYMENT_STATUS_LABELS[paymentStatus]}</span>
+          </div>
         </div>
         <div class="order-items">${itemsHtml}</div>
         <div class="order-meta">
@@ -605,6 +845,9 @@ function renderOrders() {
         <div class="order-total">${fmtBRL(o.total)}</div>
         <div class="order-actions">
           <a class="wa-link" href="${whatsappLinkFor(o.customerPhone)}" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          ${paymentStatus === 'pago'
+            ? `<button onclick="setOrderPaymentStatus('${o.id}','pendente')">Marcar pagamento como pendente</button>`
+            : `<button onclick="setOrderPaymentStatus('${o.id}','pago')">Marcar como pago</button>`}
           ${next ? `<button onclick="setOrderStatus('${o.id}','${next}')">Marcar como ${STATUS_LABELS[next].toLowerCase()}</button>` : ''}
           ${o.status !== 'cancelado' && o.status !== 'entregue' ? `<button onclick="setOrderStatus('${o.id}','cancelado')">Cancelar</button>` : ''}
           ${o.status === 'entregue' ? `<button onclick="launchOrderAsCash('${o.id}')">Lançar no caixa</button>` : ''}
@@ -615,6 +858,10 @@ function renderOrders() {
 
 async function setOrderStatus(id, status) {
     await db.collection('orders').doc(id).set({ status }, { merge: true });
+}
+
+async function setOrderPaymentStatus(id, paymentStatus) {
+    await db.collection('orders').doc(id).set({ paymentStatus }, { merge: true });
 }
 
 /* ================= CLIENTES ================= */

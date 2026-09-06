@@ -45,7 +45,11 @@
       </div>
 
       <p class="tagline" id="store-tagline">Doces artesanais feitos especialmente para você! 💖</p>
-      <p class="info-line" id="store-info-line">Dois Vizinhos - PR · Retirada 15–30 minutos · Delivery 30–60 minutos</p>
+      <div class="info-line" id="store-info-line">
+        <span class="info-chip">Dois Vizinhos - PR</span>
+        <span class="info-chip">Retirada 15–30 minutos</span>
+        <span class="info-chip">Delivery 30–60 minutos</span>
+      </div>
 
       <div class="promo-banner" id="promo-banner">
         <span class="promo-chip">Pedido mínimo R$ 10,00</span>
@@ -159,6 +163,14 @@
             <option value="pix">Pix</option>
             <option value="dinheiro">Dinheiro</option>
           </select>
+        </div>
+        <div class="field pix-info hidden" id="pix-info">
+          <label>Chave Pix para pagamento</label>
+          <div class="pix-key-row">
+            <span id="pix-key-value">—</span>
+            <button type="button" class="pix-copy-btn" id="pix-copy-btn" onclick="copyPixKey()">Copiar</button>
+          </div>
+          <span class="field-hint">Depois de pagar, envie o comprovante aqui na conversa do WhatsApp junto com o pedido.</span>
         </div>
         <div class="field" id="bairro-field" style="display:none;">
           <label for="f-bairro">Bairro</label>
