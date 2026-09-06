@@ -178,6 +178,7 @@ function fillConfigForm() {
     const c = currentStoreConfig;
     document.getElementById('cfg-tagline').value = c.tagline || '';
     document.getElementById('cfg-address').value = c.address || '';
+    document.getElementById('cfg-pickup-map-link').value = c.pickupMapLink || '';
     document.getElementById('cfg-pickup').value = c.pickupEstimate || '';
     document.getElementById('cfg-delivery').value = c.deliveryEstimate || '';
     document.getElementById('cfg-min-order').value = c.minOrder || '';
@@ -206,6 +207,7 @@ document.getElementById('store-config-form').addEventListener('submit', async (e
     const payload = {
         tagline: document.getElementById('cfg-tagline').value.trim(),
         address: document.getElementById('cfg-address').value.trim(),
+        pickupMapLink: document.getElementById('cfg-pickup-map-link').value.trim(),
         pickupEstimate: document.getElementById('cfg-pickup').value.trim(),
         deliveryEstimate: document.getElementById('cfg-delivery').value.trim(),
         minOrder: minOrderVal ? Number(minOrderVal) : null,
@@ -823,6 +825,13 @@ function nextStatusFor(order) {
     return chain[order.status];
 }
 
+// "Pronto" tem um nome diferente pra retirada: o pedido não é "pronto" em si,
+// fica disponível pro cliente vir buscar.
+function statusLabelFor(status, fulfillment) {
+    if (status === 'pronto' && fulfillment !== 'delivery') return 'Disponível para retirada';
+    return STATUS_LABELS[status] || status;
+}
+
 function renderOrders() {
     const newCount = allOrders.filter(o => o.status === 'novo').length;
     document.getElementById('badge-pedidos').textContent = newCount || '';
@@ -849,7 +858,7 @@ function renderOrders() {
             <div class="order-time">${time}</div>
           </div>
           <div class="order-pills">
-            <span class="order-status-pill ${o.status}">${STATUS_LABELS[o.status] || o.status}</span>
+            <span class="order-status-pill ${o.status}">${statusLabelFor(o.status, o.fulfillment)}</span>
             <span class="payment-status-pill ${paymentStatus}">${PAYMENT_STATUS_LABELS[paymentStatus]}</span>
           </div>
         </div>
@@ -865,7 +874,7 @@ function renderOrders() {
           ${paymentStatus === 'pago'
             ? `<button onclick="setOrderPaymentStatus('${o.id}','pendente')">Marcar pagamento como pendente</button>`
             : `<button onclick="setOrderPaymentStatus('${o.id}','pago')">Marcar como pago</button>`}
-          ${next ? `<button onclick="setOrderStatus('${o.id}','${next}')">Marcar como ${STATUS_LABELS[next].toLowerCase()}</button>` : ''}
+          ${next ? `<button onclick="setOrderStatus('${o.id}','${next}')">Marcar como ${statusLabelFor(next, o.fulfillment).toLowerCase()}</button>` : ''}
           ${o.status !== 'cancelado' && o.status !== 'entregue' ? `<button onclick="setOrderStatus('${o.id}','cancelado')">Cancelar</button>` : ''}
           ${o.status === 'entregue' ? `<button onclick="launchOrderAsCash('${o.id}')">Lançar no caixa</button>` : ''}
         </div>
@@ -894,6 +903,18 @@ async function setOrderStatus(id, status) {
     if (status === 'saiu_entrega' && order && order.customerPhone) {
         const nome = order.customerName || '';
         const msg = `Oi${nome ? ' ' + nome : ''}! 🍬 Seu pedido na Doces do Léo saiu para entrega e já está a caminho até você. Chega em breve!`;
+        window.open(whatsappLinkFor(order.customerPhone, msg), '_blank');
+    }
+
+    // Avisa o cliente no WhatsApp assim que o pedido de retirada fica disponível,
+    // já com a localização da loja cadastrada nas configurações.
+    if (status === 'pronto' && order && order.fulfillment !== 'delivery' && order.customerPhone) {
+        const nome = order.customerName || '';
+        const endereco = currentStoreConfig.address || '';
+        const mapLink = currentStoreConfig.pickupMapLink || '';
+        let msg = `Oi${nome ? ' ' + nome : ''}! 🍬 Seu pedido na Doces do Léo está pronto e disponível para retirada!`;
+        if (endereco) msg += `\n📍 ${endereco}`;
+        if (mapLink) msg += `\n${mapLink}`;
         window.open(whatsappLinkFor(order.customerPhone, msg), '_blank');
     }
 }

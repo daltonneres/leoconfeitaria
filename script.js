@@ -805,9 +805,12 @@ function renderClienteResults(nome, orders) {
         const date = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : null;
         const dateStr = date ? date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'data pendente';
         const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
+        const statusLabel = (o.status === 'pronto' && o.fulfillment !== 'delivery')
+            ? 'Disponível para retirada'
+            : (CLIENTE_STATUS_LABELS[o.status] || o.status || 'Recebido');
         return `
       <div class="cliente-order">
-        <div class="date">${dateStr}<span class="status-tag">${CLIENTE_STATUS_LABELS[o.status] || o.status || 'Recebido'}</span></div>
+        <div class="date">${dateStr}<span class="status-tag">${statusLabel}</span></div>
         <div class="items">${itemsSummary}</div>
         <div class="total">${fmtBRL(o.total || 0)}</div>
       </div>`;
