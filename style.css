@@ -1218,6 +1218,10 @@ footer {
     margin-bottom: 10px;
 }
 
+.shipping-fee-row.hidden {
+    display: none;
+}
+
 .subtotal-row {
     display: flex;
     justify-content: space-between;
