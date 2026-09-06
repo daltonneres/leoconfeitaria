@@ -365,6 +365,12 @@
         <div class="field checkbox-field">
           <label><input type="checkbox" id="pr-active" checked> Ativa</label>
         </div>
+        <div class="field">
+          <label>Produtos desta promoção (opcional)</label>
+          <p class="hint-text" style="margin-bottom:8px;">Aparecem com foto e preço no pop-up de promoções do site — o cliente adiciona à sacola com um toque.</p>
+          <input id="pr-product-search" type="text" placeholder="Buscar produto por nome ou categoria...">
+          <div id="pr-products-list" class="promo-product-picker"></div>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-danger" id="pr-delete-btn" onclick="deleteCurrentPromo()">Excluir</button>
           <button type="submit" class="btn-primary">Salvar promoção</button>

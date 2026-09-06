@@ -578,6 +578,7 @@ async function seedInitialMenu() {
 
 /* ================= PROMOÇÕES ================= */
 let allPromos = [];
+let selectedPromoProductIds = new Set();
 
 function listenPromotions() {
     db.collection('promotions').onSnapshot(snap => {
@@ -596,11 +597,41 @@ function renderPromosList() {
     <div class="promo-row" onclick="openPromoModal('${p.id}')">
       <div>
         <div class="pr-title">${p.title}</div>
-        <div class="pr-dates">${p.startDate || 'sem início'} até ${p.endDate || 'sem fim'} · ${p.active ? 'Ativa' : 'Inativa'}</div>
+        <div class="pr-dates">${p.startDate || 'sem início'} até ${p.endDate || 'sem fim'} · ${p.active ? 'Ativa' : 'Inativa'}${p.productIds && p.productIds.length ? ` · ${p.productIds.length} produto(s)` : ''}</div>
       </div>
     </div>
   `).join('');
 }
+
+function renderPromoProductPicker() {
+    const term = document.getElementById('pr-product-search').value.trim().toLowerCase();
+    const root = document.getElementById('pr-products-list');
+    const list = allProducts.filter(p =>
+        !term || p.name.toLowerCase().includes(term) || (p.category || '').toLowerCase().includes(term)
+    );
+    if (list.length === 0) {
+        root.innerHTML = `<p class="hint-text" style="margin:6px 0 0;">Nenhum produto encontrado.</p>`;
+        return;
+    }
+    root.innerHTML = list.map(p => `
+    <label class="promo-product-row">
+      <input type="checkbox" value="${p.id}" ${selectedPromoProductIds.has(p.id) ? 'checked' : ''} onchange="togglePromoProduct('${p.id}', this.checked)">
+      <div class="p-thumb">${p.img ? `<img src="${normalizeProductImageUrl(p.img)}" alt="">` : '🍰'}</div>
+      <div class="p-info">
+        <div class="p-name">${p.name}</div>
+        <div class="p-cat">${p.category || 'Sem categoria'}</div>
+      </div>
+      <div class="p-price">${fmtBRL(p.promoPrice != null && p.promoPrice < p.price ? p.promoPrice : p.price)}</div>
+    </label>
+  `).join('');
+}
+
+function togglePromoProduct(id, checked) {
+    if (checked) selectedPromoProductIds.add(id);
+    else selectedPromoProductIds.delete(id);
+}
+
+document.getElementById('pr-product-search').addEventListener('input', renderPromoProductPicker);
 
 function openPromoModal(id) {
     const form = document.getElementById('promo-form');
@@ -608,6 +639,7 @@ function openPromoModal(id) {
     document.getElementById('pr-id').value = id || '';
     document.getElementById('pr-delete-btn').style.display = id ? 'block' : 'none';
     document.getElementById('promo-modal-title').textContent = id ? 'Editar promoção' : 'Nova promoção';
+    document.getElementById('pr-product-search').value = '';
 
     if (id) {
         const p = allPromos.find(x => x.id === id);
@@ -617,10 +649,13 @@ function openPromoModal(id) {
             document.getElementById('pr-start').value = p.startDate || '';
             document.getElementById('pr-end').value = p.endDate || '';
             document.getElementById('pr-active').checked = p.active !== false;
+            selectedPromoProductIds = new Set(p.productIds || []);
         }
     } else {
         document.getElementById('pr-active').checked = true;
+        selectedPromoProductIds = new Set();
     }
+    renderPromoProductPicker();
     document.getElementById('promo-modal').classList.add('open');
 }
 
@@ -636,7 +671,8 @@ document.getElementById('promo-form').addEventListener('submit', async (e) => {
         description: document.getElementById('pr-desc').value.trim(),
         startDate: document.getElementById('pr-start').value || null,
         endDate: document.getElementById('pr-end').value || null,
-        active: document.getElementById('pr-active').checked
+        active: document.getElementById('pr-active').checked,
+        productIds: [...selectedPromoProductIds]
     };
     if (id) {
         await db.collection('promotions').doc(id).set(payload, { merge: true });

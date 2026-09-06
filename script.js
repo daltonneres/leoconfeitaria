@@ -129,6 +129,48 @@ function renderPromoBanner() {
     el.innerHTML = active.map(p => `<span class="promo-chip">🔥 ${p.title}</span>`).join('');
 }
 
+function promoProductRow(item) {
+    const lowStock = item.stock != null && item.stock > 0 && item.stock <= 5;
+    return `
+    <button type="button" class="promo-popup-product" id="promo-prod-${item.id}" onclick="addPromoProduct('${item.id}')">
+      <span class="promo-popup-product-photo">${productPhoto(item)}</span>
+      <span class="promo-popup-product-info">
+        <span class="promo-popup-product-name">${item.name}</span>
+        ${priceBlock(item)}
+        ${lowStock ? `<span class="item-badge lowstock">Últimas ${item.stock}</span>` : ''}
+      </span>
+      <span class="promo-popup-product-add" id="promo-prod-add-${item.id}">+</span>
+    </button>`;
+}
+
+function renderPromotionPopupContent() {
+    const listEl = document.getElementById('promo-popup-list');
+    if (!listEl) return;
+    const active = getActivePromotions();
+
+    listEl.innerHTML = active.map(p => {
+        const items = (p.productIds || []).map(findItem).filter(Boolean);
+        return `
+      <div class="promo-popup-item">
+        <div class="promo-popup-item-title">${p.title}</div>
+        ${items.length ? `<div class="promo-popup-products">${items.map(promoProductRow).join('')}</div>` : ''}
+      </div>`;
+    }).join('');
+}
+
+function addPromoProduct(id) {
+    addItem(id);
+    const addIcon = document.getElementById(`promo-prod-add-${id}`);
+    const btn = document.getElementById(`promo-prod-${id}`);
+    if (!addIcon || !btn) return;
+    btn.classList.add('added');
+    addIcon.textContent = '✓';
+    setTimeout(() => {
+        addIcon.textContent = '+';
+        btn.classList.remove('added');
+    }, 900);
+}
+
 function renderPromotionPopup() {
     const active = getActivePromotions();
     const popup = document.getElementById('promo-popup');
@@ -143,9 +185,7 @@ function renderPromotionPopup() {
         console.warn('Não foi possível salvar o estado do pop-up de promoções.', err);
     }
 
-    document.getElementById('promo-popup-list').innerHTML = active
-        .map(p => `<div class="promo-popup-item">${p.title}</div>`)
-        .join('');
+    renderPromotionPopupContent();
     popup.classList.add('open');
     popup.setAttribute('aria-hidden', 'false');
 }
@@ -225,6 +265,7 @@ function renderMenu() {
       <div class="category-title">${cat.category}</div>
       ${cat.items.map(item => {
         const soldOut = item.stock != null && item.stock <= 0;
+        const lowStock = !soldOut && item.stock != null && item.stock <= 5;
         const hasPromo = item.promoPrice != null && item.promoPrice < item.price;
         return `
         <div class="item-row ${soldOut ? 'sold-out' : ''}" id="row-${item.id}">
@@ -233,6 +274,7 @@ function renderMenu() {
               <span class="item-name">${item.name}</span>
               ${item.badge ? `<span class="item-badge">${item.badge}</span>` : ''}
               ${hasPromo ? `<span class="item-badge promo">Promoção</span>` : ''}
+              ${lowStock ? `<span class="item-badge lowstock">Últimas ${item.stock} unidades</span>` : ''}
               ${soldOut ? `<span class="item-badge soldout">Esgotado</span>` : ''}
             </div>
             ${item.desc ? `<div class="item-desc">${item.desc}</div>` : ''}
@@ -854,6 +896,7 @@ function rebuildMenu() {
     renderChips();
     renderMenu();
     renderCart();
+    renderPromotionPopupContent();
 }
 
 function listenProducts() {
