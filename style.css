@@ -270,6 +270,18 @@ button {
     border: 1px solid rgba(185, 133, 79, .35);
 }
 
+.promo-countdown {
+    font-weight: 600;
+    color: #b23b3b;
+}
+
+.promo-countdown-popup {
+    text-align: center;
+    font-size: .78rem;
+    margin-top: 2px;
+    margin-bottom: 4px;
+}
+
 .order-benefits {
     margin-top: 8px;
 }
@@ -719,6 +731,14 @@ button {
     background: rgba(255, 255, 255, .48);
     color: var(--brown-800);
     transition: background .15s, color .15s, border-color .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chip-icon {
+    font-size: 1em;
+    line-height: 1;
 }
 
 .chip:hover {
@@ -767,6 +787,14 @@ section {
     border-bottom: 0;
     padding-bottom: 6px;
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.category-title .chip-icon {
+    font-style: normal;
+    font-size: .92em;
 }
 
 .item-row {
@@ -1143,6 +1171,28 @@ footer {
     border-bottom: 1px solid var(--line-dark);
 }
 
+.cart-line-photo {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--brown-650);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cart-line-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cart-line-photo .photo-placeholder {
+    font-size: .82rem;
+}
+
 .cart-line-info {
     flex: 1;
     min-width: 0;
@@ -1292,6 +1342,21 @@ footer {
     color: var(--caramel-dark);
     margin-bottom: 12px;
     text-align: center;
+}
+
+.min-order-progress {
+    height: 7px;
+    border-radius: 100px;
+    background: var(--line-dark);
+    overflow: hidden;
+    margin: -4px 0 14px;
+}
+
+.min-order-progress-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--blush), var(--caramel));
+    transition: width .35s ease;
 }
 
 .cashback-applied-row {

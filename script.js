@@ -114,6 +114,19 @@ function getActivePromotions() {
     });
 }
 
+function formatCountdown(endDate) {
+    if (!endDate) return null;
+    const end = new Date(`${endDate}T23:59:59`);
+    const diff = end - new Date();
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    if (days >= 1) return `Termina em ${days} dia${days > 1 ? 's' : ''}`;
+    if (hours >= 1) return `Termina em ${hours}h ${mins}min`;
+    return `Termina em ${mins} min`;
+}
+
 function renderPromoBanner() {
     const el = document.getElementById('promo-banner');
     const active = getActivePromotions();
@@ -126,7 +139,10 @@ function renderPromoBanner() {
         return;
     }
     el.style.display = 'flex';
-    el.innerHTML = active.map(p => `<span class="promo-chip">🔥 ${p.title}</span>`).join('');
+    el.innerHTML = active.map(p => {
+        const countdown = formatCountdown(p.endDate);
+        return `<span class="promo-chip">🔥 ${p.title}${countdown ? ` <span class="promo-countdown">· ${countdown}</span>` : ''}</span>`;
+    }).join('');
 }
 
 function promoProductRow(item) {
@@ -150,9 +166,11 @@ function renderPromotionPopupContent() {
 
     listEl.innerHTML = active.map(p => {
         const items = (p.productIds || []).map(findItem).filter(Boolean);
+        const countdown = formatCountdown(p.endDate);
         return `
       <div class="promo-popup-item">
         <div class="promo-popup-item-title">${p.title}</div>
+        ${countdown ? `<div class="promo-countdown promo-countdown-popup">⏳ ${countdown}</div>` : ''}
         ${items.length ? `<div class="promo-popup-products">${items.map(promoProductRow).join('')}</div>` : ''}
       </div>`;
     }).join('');
@@ -198,6 +216,28 @@ function closePromotionPopup() {
 }
 
 /* ================= CATEGORY CHIPS ================= */
+const CATEGORY_ICON_RULES = [
+    [/bolo|torta|tortinha/, '🎂'],
+    [/brigadeiro|docinho|doce fino|trufa|bombom/, '🍫'],
+    [/cookie|biscoito/, '🍪'],
+    [/cupcake|muffin/, '🧁'],
+    [/pão|pao|salgad/, '🥐'],
+    [/sorvete|picolé|picole|gelad/, '🍨'],
+    [/bebida|suco|refri/, '🥤'],
+    [/pote|copo|taça|taca/, '🍮'],
+    [/páscoa|pascoa|ovo/, '🐣'],
+    [/natal/, '🎄'],
+    [/kit|combo|caixa/, '🎁'],
+];
+
+function categoryIcon(name) {
+    const n = (name || '').toLowerCase();
+    for (const [pattern, icon] of CATEGORY_ICON_RULES) {
+        if (pattern.test(n)) return icon;
+    }
+    return '🍬';
+}
+
 function renderChips() {
     const chipsBar = document.getElementById('chips-bar');
     const chipsEl = document.getElementById('category-chips');
@@ -206,7 +246,7 @@ function renderChips() {
     chipsBar.hidden = MENU.length === 0;
     chipsEl.innerHTML = MENU.map(cat => {
         const slug = slugify(cat.category);
-        return `<a class="chip" href="#cat-${slug}">${cat.category}</a>`;
+        return `<a class="chip" href="#cat-${slug}"><span class="chip-icon">${categoryIcon(cat.category)}</span>${cat.category}</a>`;
     }).join('');
 }
 
@@ -262,7 +302,7 @@ function renderMenu() {
         const slug = slugify(cat.category);
         return `
     <div class="category" id="cat-${slug}">
-      <div class="category-title">${cat.category}</div>
+      <div class="category-title"><span class="chip-icon">${categoryIcon(cat.category)}</span>${cat.category}</div>
       ${cat.items.map(item => {
         const soldOut = item.stock != null && item.stock <= 0;
         const lowStock = !soldOut && item.stock != null && item.stock <= 5;
@@ -406,6 +446,8 @@ function renderCart() {
         formEl.classList.add('hidden');
         waBtn.disabled = true;
         if (minNote) minNote.style.display = 'none';
+        const progressElEmpty = document.getElementById('min-order-progress');
+        if (progressElEmpty) progressElEmpty.classList.add('hidden');
         return;
     }
 
@@ -427,11 +469,24 @@ function renderCart() {
         }
     }
 
+    const progressEl = document.getElementById('min-order-progress');
+    const progressFill = document.getElementById('min-order-progress-fill');
+    if (progressEl && progressFill) {
+        if (belowMin) {
+            const pct = Math.min(100, Math.round((subtotal / STORE_INFO.minOrder) * 100));
+            progressEl.classList.remove('hidden');
+            progressFill.style.width = `${pct}%`;
+        } else {
+            progressEl.classList.add('hidden');
+        }
+    }
+
     linesEl.innerHTML = Object.entries(cart).map(([id, qty]) => {
         const item = findItem(id);
         if (!item) return '';
         return `
       <div class="cart-line">
+        <div class="cart-line-photo">${productPhoto(item)}</div>
         <div class="cart-line-info">
           <div class="name">${item.name}</div>
           <div class="unit">${qty} × ${fmtBRL(unitPrice(item))}</div>
@@ -946,3 +1001,9 @@ listenPromotions();
 document.getElementById('f-telefone').addEventListener('blur', refreshCashbackForPhone);
 
 setInterval(renderStatus, 60000); // reavalia horário automático a cada minuto
+setInterval(() => {
+    renderPromoBanner();
+    if (document.getElementById('promo-popup')?.classList.contains('open')) {
+        renderPromotionPopupContent();
+    }
+}, 60000); // mantém os contadores regressivos das promoções atualizados
