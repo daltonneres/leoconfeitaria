@@ -181,6 +181,7 @@ function fillConfigForm() {
     document.getElementById('cfg-pickup').value = c.pickupEstimate || '';
     document.getElementById('cfg-delivery').value = c.deliveryEstimate || '';
     document.getElementById('cfg-min-order').value = c.minOrder || '';
+    document.getElementById('cfg-shipping-fee').value = c.shippingFee || '';
     document.getElementById('cfg-whatsapp').value = c.whatsappNumber || '';
     document.getElementById('cfg-pix-key').value = c.pixKey || '';
     document.getElementById('cfg-open-time').value = c.openTime || '13:30';
@@ -195,19 +196,28 @@ document.getElementById('store-config-form').addEventListener('submit', async (e
     e.preventDefault();
     const days = Array.from(document.querySelectorAll('#weekday-picker input:checked')).map(cb => Number(cb.value));
     const minOrderVal = document.getElementById('cfg-min-order').value;
+    const shippingFeeVal = document.getElementById('cfg-shipping-fee').value;
+
+    // Garante que o número salvo é só dígitos com DDI 55 — um link wa.me com
+    // parênteses, espaços ou sem o 55 abre "página não encontrada" pro cliente.
+    let whatsappDigits = document.getElementById('cfg-whatsapp').value.replace(/\D/g, '');
+    if (whatsappDigits && whatsappDigits.length <= 11) whatsappDigits = '55' + whatsappDigits;
+
     const payload = {
         tagline: document.getElementById('cfg-tagline').value.trim(),
         address: document.getElementById('cfg-address').value.trim(),
         pickupEstimate: document.getElementById('cfg-pickup').value.trim(),
         deliveryEstimate: document.getElementById('cfg-delivery').value.trim(),
         minOrder: minOrderVal ? Number(minOrderVal) : null,
-        whatsappNumber: document.getElementById('cfg-whatsapp').value.trim(),
+        shippingFee: shippingFeeVal ? Number(shippingFeeVal) : 0,
+        whatsappNumber: whatsappDigits,
         pixKey: document.getElementById('cfg-pix-key').value.trim(),
         openTime: document.getElementById('cfg-open-time').value,
         closeTime: document.getElementById('cfg-close-time').value,
         openDays: days
     };
     await db.collection('config').doc('store').set(payload, { merge: true });
+    document.getElementById('cfg-whatsapp').value = whatsappDigits;
     const note = document.getElementById('config-save-note');
     note.textContent = 'Dados salvos!';
     setTimeout(() => note.textContent = '', 2500);
@@ -796,15 +806,22 @@ document.getElementById('order-filters').addEventListener('click', (e) => {
     renderOrders();
 });
 
-function whatsappLinkFor(phoneRaw) {
+function whatsappLinkFor(phoneRaw, message) {
     let digits = (phoneRaw || '').replace(/\D/g, '');
     if (digits.length <= 11) digits = '55' + digits;
-    return `https://wa.me/${digits}`;
+    return message ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : `https://wa.me/${digits}`;
 }
 
-const STATUS_LABELS = { novo: 'Novo', preparo: 'Em preparo', pronto: 'Pronto', entregue: 'Entregue', cancelado: 'Cancelado' };
-const NEXT_STATUS = { novo: 'preparo', preparo: 'pronto', pronto: 'entregue' };
+const STATUS_LABELS = { novo: 'Novo', preparo: 'Em preparo', pronto: 'Pronto', saiu_entrega: 'Saiu para entrega', entregue: 'Entregue', cancelado: 'Cancelado' };
 const PAYMENT_STATUS_LABELS = { pendente: 'Pagamento pendente', pago: 'Pago' };
+
+// Fluxo de status depende do tipo de entrega: delivery ganha a etapa extra "saiu para entrega"
+function nextStatusFor(order) {
+    const chain = order.fulfillment === 'delivery'
+        ? { novo: 'preparo', preparo: 'pronto', pronto: 'saiu_entrega', saiu_entrega: 'entregue' }
+        : { novo: 'preparo', preparo: 'pronto', pronto: 'entregue' };
+    return chain[order.status];
+}
 
 function renderOrders() {
     const newCount = allOrders.filter(o => o.status === 'novo').length;
@@ -822,7 +839,7 @@ function renderOrders() {
     root.innerHTML = list.map(o => {
         const time = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate().toLocaleString('pt-BR') : '';
         const itemsHtml = (o.items || []).map(i => `${i.qty}x ${i.name} — ${fmtBRL(i.price * i.qty)}`).join('<br>');
-        const next = NEXT_STATUS[o.status];
+        const next = nextStatusFor(o);
         const paymentStatus = o.paymentStatus || 'pendente';
         return `
       <div class="order-card">
@@ -857,7 +874,28 @@ function renderOrders() {
 }
 
 async function setOrderStatus(id, status) {
-    await db.collection('orders').doc(id).set({ status }, { merge: true });
+    const order = allOrders.find(o => o.id === id);
+    const update = { status };
+
+    // Libera o cashback só quando o pedido é marcado como entregue de verdade —
+    // pedido cancelado nunca passa por aqui, então nunca gera cashback.
+    if (status === 'entregue' && order && order.cashbackAmount > 0 && !order.cashbackReleased) {
+        const validDays = order.cashbackValidDays || 30;
+        update.cashbackReleased = true;
+        update.cashbackExpiresAt = firebase.firestore.Timestamp.fromDate(
+            new Date(Date.now() + validDays * 24 * 60 * 60 * 1000)
+        );
+        update.cashbackRedeemed = false;
+    }
+
+    await db.collection('orders').doc(id).set(update, { merge: true });
+
+    // Avisa o cliente no WhatsApp assim que o pedido sai para entrega
+    if (status === 'saiu_entrega' && order && order.customerPhone) {
+        const nome = order.customerName || '';
+        const msg = `Oi${nome ? ' ' + nome : ''}! 🍬 Seu pedido na Doces do Léo saiu para entrega e já está a caminho até você. Chega em breve!`;
+        window.open(whatsappLinkFor(order.customerPhone, msg), '_blank');
+    }
 }
 
 async function setOrderPaymentStatus(id, paymentStatus) {
@@ -940,7 +978,7 @@ function computeClients() {
             c.totalSpent += o.total || 0;
         }
 
-        if (o.cashbackAmount && !o.cashbackRedeemed) {
+        if (o.cashbackAmount && o.cashbackReleased && !o.cashbackRedeemed) {
             const expiresAt = o.cashbackExpiresAt && o.cashbackExpiresAt.toDate ? o.cashbackExpiresAt.toDate() : null;
             if (expiresAt && expiresAt > now) {
                 c.cashbackAvailable += o.cashbackAmount;

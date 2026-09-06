@@ -11,6 +11,7 @@ let STORE_INFO = {
     pickupEstimate: "15–30 minutos",
     deliveryEstimate: "30–60 minutos",
     minOrder: 10,
+    shippingFee: 10,
     cashbackAmount: 0.20,
     cashbackValidDays: 30,
     tagline: "Doces artesanais feitos especialmente para você! 💖",
@@ -314,17 +315,32 @@ function cartCount() {
     return Object.values(cart).reduce((a, b) => a + b, 0);
 }
 
+function shippingFeeFor(fulfillmentType) {
+    return fulfillmentType === 'delivery' ? (STORE_INFO.shippingFee || 0) : 0;
+}
+
 function renderCart() {
     const count = cartCount();
     const subtotal = cartTotal();
     const cashbackDiscount = Math.min(appliedCashback.amount, subtotal);
-    const total = subtotal - cashbackDiscount;
+    const shipping = shippingFeeFor(fulfillment);
+    const total = subtotal - cashbackDiscount + shipping;
 
     document.getElementById('nav-cart-count').textContent = count;
     document.getElementById('fab-cart-count').textContent = count;
     document.getElementById('fab-cart-total').textContent = fmtBRL(total);
     document.getElementById('drawer-total').textContent = fmtBRL(total);
     document.getElementById('cart-fab').classList.toggle('hidden', count === 0);
+
+    const shippingRow = document.getElementById('shipping-fee-row');
+    if (shippingRow) {
+        if (shipping > 0) {
+            shippingRow.classList.remove('hidden');
+            document.getElementById('shipping-fee-value').textContent = fmtBRL(shipping);
+        } else {
+            shippingRow.classList.add('hidden');
+        }
+    }
 
     const cashbackRow = document.getElementById('cashback-applied-row');
     if (cashbackRow) {
@@ -404,6 +420,7 @@ function setFulfillment(type) {
     const isDelivery = type === 'delivery';
     document.getElementById('bairro-field').style.display = isDelivery ? 'block' : 'none';
     document.getElementById('address-field').style.display = isDelivery ? 'block' : 'none';
+    renderCart();
 }
 
 /* ================= PIX ================= */
@@ -483,7 +500,7 @@ async function refreshCashbackForPhone() {
         const eligible = [];
         snap.forEach(doc => {
             const d = doc.data();
-            if (!d.cashbackAmount || d.cashbackRedeemed) return;
+            if (!d.cashbackAmount || !d.cashbackReleased || d.cashbackRedeemed) return;
             const expiresAt = d.cashbackExpiresAt && d.cashbackExpiresAt.toDate ? d.cashbackExpiresAt.toDate() : null;
             if (expiresAt && expiresAt > now) {
                 eligible.push({ id: doc.id, amount: d.cashbackAmount, expiresAt });
@@ -541,7 +558,8 @@ async function sendToWhatsapp() {
         await refreshCashbackForPhone();
     }
     const cashbackUsed = Math.min(appliedCashback.amount, subtotal);
-    const total = subtotal - cashbackUsed;
+    const shipping = shippingFeeFor(fulfillment);
+    const total = subtotal - cashbackUsed + shipping;
 
     const waBtn = document.getElementById('whatsapp-btn');
     sendingOrder = true;
@@ -550,7 +568,6 @@ async function sendToWhatsapp() {
 
     const cashbackAmount = STORE_INFO.cashbackAmount || 0;
     const cashbackValidDays = STORE_INFO.cashbackValidDays || 30;
-    const cashbackExpiresAt = new Date(Date.now() + cashbackValidDays * 24 * 60 * 60 * 1000);
 
     try {
         const batch = db.batch();
@@ -559,6 +576,7 @@ async function sendToWhatsapp() {
             items,
             subtotal,
             cashbackUsed,
+            shippingFee: shipping,
             total,
             fulfillment,
             paymentMethod,
@@ -570,7 +588,8 @@ async function sendToWhatsapp() {
             paymentStatus: 'pendente',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             cashbackAmount,
-            cashbackExpiresAt: firebase.firestore.Timestamp.fromDate(cashbackExpiresAt),
+            cashbackValidDays,
+            cashbackReleased: false,
             cashbackRedeemed: false
         });
 
@@ -592,6 +611,9 @@ async function sendToWhatsapp() {
         msg += `• ${i.qty}x ${i.name} — ${fmtBRL(i.price * i.qty)}\n`;
     });
     msg += `\nSubtotal: ${fmtBRL(subtotal)}\n`;
+    if (shipping > 0) {
+        msg += `Frete: ${fmtBRL(shipping)}\n`;
+    }
     if (cashbackUsed > 0) {
         msg += `Cashback aplicado: −${fmtBRL(cashbackUsed)}\n`;
     }
@@ -606,7 +628,12 @@ async function sendToWhatsapp() {
     }
     msg += `\nNome: ${nome}\nTelefone: ${telefone}`;
 
-    const url = `https://wa.me/${STORE_INFO.whatsappNumber}?text=${encodeURIComponent(msg)}`;
+    // Sanitiza o número mesmo que o valor salvo no config esteja mal formatado
+    // (com parênteses, espaços ou sem o DDI 55) — evita "página não encontrada" no WhatsApp.
+    let waNumber = (STORE_INFO.whatsappNumber || '').replace(/\D/g, '');
+    if (waNumber && waNumber.length <= 11) waNumber = '55' + waNumber;
+
+    const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
 
     appliedCashback = { amount: 0, orderIds: [] };
@@ -634,7 +661,8 @@ function resetClienteArea() {
     document.getElementById('cliente-results').classList.add('hidden');
     document.getElementById('cliente-results').innerHTML = '';
     document.getElementById('cliente-error').style.display = 'none';
-    document.getElementById('cliente-note').style.display = 'none';
+    const noteEl = document.getElementById('cliente-note');
+    if (noteEl) noteEl.style.display = 'none';
 }
 
 async function registerCliente() {
@@ -646,7 +674,7 @@ async function registerCliente() {
     const errEl = document.getElementById('cliente-error');
     const noteEl = document.getElementById('cliente-note');
     errEl.style.display = 'none';
-    noteEl.style.display = 'none';
+    if (noteEl) noteEl.style.display = 'none';
 
     if (!nome || !telefone) {
         errEl.textContent = 'Preencha nome e telefone para se cadastrar.';
@@ -727,6 +755,8 @@ async function lookupCliente() {
     btn.disabled = false;
 }
 
+const CLIENTE_STATUS_LABELS = { novo: 'Recebido', preparo: 'Em preparo', pronto: 'Pronto', saiu_entrega: 'Saiu para entrega', entregue: 'Entregue', cancelado: 'Cancelado' };
+
 function renderClienteResults(nome, orders) {
     document.getElementById('cliente-form').classList.add('hidden');
     const resultsEl = document.getElementById('cliente-results');
@@ -745,7 +775,7 @@ function renderClienteResults(nome, orders) {
     let nearestExpiry = null;
 
     orders.forEach(o => {
-        if (o.cashbackAmount && o.cashbackExpiresAt && !o.cashbackRedeemed) {
+        if (o.cashbackAmount && o.cashbackReleased && o.cashbackExpiresAt && !o.cashbackRedeemed) {
             const expiresAt = o.cashbackExpiresAt.toDate ? o.cashbackExpiresAt.toDate() : new Date(o.cashbackExpiresAt);
             if (expiresAt > now) {
                 cashbackTotal += o.cashbackAmount;
@@ -777,7 +807,7 @@ function renderClienteResults(nome, orders) {
         const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
         return `
       <div class="cliente-order">
-        <div class="date">${dateStr}<span class="status-tag">${o.status || 'novo'}</span></div>
+        <div class="date">${dateStr}<span class="status-tag">${CLIENTE_STATUS_LABELS[o.status] || o.status || 'Recebido'}</span></div>
         <div class="items">${itemsSummary}</div>
         <div class="total">${fmtBRL(o.total || 0)}</div>
       </div>`;

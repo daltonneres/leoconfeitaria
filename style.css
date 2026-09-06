@@ -1210,6 +1210,14 @@ footer {
     margin-bottom: 10px;
 }
 
+.shipping-fee-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .86rem;
+    color: var(--brown-700);
+    margin-bottom: 10px;
+}
+
 .subtotal-row {
     display: flex;
     justify-content: space-between;

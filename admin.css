@@ -431,6 +431,11 @@
     color: var(--sage);
 }
 
+.order-status-pill.saiu_entrega {
+    background: rgba(90, 120, 160, .2);
+    color: #3f5f80;
+}
+
 .order-status-pill.entregue {
     background: rgba(122, 139, 111, .35);
     color: #4c5a44;
