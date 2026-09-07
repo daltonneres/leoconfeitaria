@@ -569,6 +569,109 @@
     border-radius: 100px;
 }
 
+/* ===================== ESTOQUE RÁPIDO NO CARD DO PRODUTO ===================== */
+.p-stock-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.p-stock-control button {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--brown-800);
+    color: var(--brown-800);
+    font-size: .95rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s;
+}
+
+.p-stock-control button:hover {
+    background: var(--brown-800);
+    color: var(--cream);
+}
+
+.p-stock-control span {
+    min-width: 22px;
+    text-align: center;
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--brown-900);
+}
+
+.p-stock-unlimited {
+    font-size: .74rem;
+    color: var(--brown-700);
+    font-style: italic;
+    white-space: nowrap;
+}
+
+/* ===================== PAINEL / DASHBOARD ===================== */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.kpi-card {
+    background: #fff;
+    border: 1px solid var(--line-dark);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kpi-card span {
+    font-size: .74rem;
+    color: var(--brown-700);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.kpi-card strong {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    color: var(--brown-900);
+}
+
+.kpi-card.warn strong {
+    color: #b23b3b;
+}
+
+.dashboard-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.chart-card {
+    background: #fff;
+    border: 1px solid var(--line-dark);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.chart-card h3 {
+    font-size: .95rem;
+    font-weight: 500;
+    color: var(--brown-800);
+    margin-bottom: 12px;
+}
+
+.chart-wrap {
+    position: relative;
+    height: 220px;
+}
+
 /* ===================== PROMO PRODUCT PICKER ===================== */
 .promo-product-picker {
     display: flex;

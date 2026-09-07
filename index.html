@@ -154,7 +154,16 @@
         <div class="field">
           <label for="f-telefone">Telefone</label>
           <input id="f-telefone" type="tel" placeholder="(46) 9 9999-9999">
-          <span class="field-hint">Se você tiver cashback disponível, ele é aplicado automaticamente.</span>
+          <span class="field-hint" id="cashback-hint">Se você tiver cashback disponível, ele é aplicado automaticamente.</span>
+        </div>
+        <div class="field">
+          <label for="f-cupom">Cupom de desconto (opcional)</label>
+          <div class="coupon-input-row">
+            <input id="f-cupom" type="text" placeholder="Digite o código" autocomplete="off">
+            <button type="button" class="coupon-apply-btn" id="coupon-apply-btn" onclick="applyCoupon()">Aplicar</button>
+          </div>
+          <span class="field-hint">Vale um desconto por pedido — cupom e cashback não se acumulam.</span>
+          <span class="field-hint" id="coupon-message"></span>
         </div>
         <div class="field">
           <label for="f-pagamento">Forma de pagamento</label>
@@ -223,6 +232,10 @@
       <div class="cashback-applied-row hidden" id="cashback-applied-row">
         <span>Cashback aplicado</span>
         <strong id="cashback-applied-value">− R$ 0,00</strong>
+      </div>
+      <div class="coupon-applied-row hidden" id="coupon-applied-row">
+        <span>Cupom <strong id="coupon-applied-code"></strong></span>
+        <strong id="coupon-applied-value">− R$ 0,00</strong>
       </div>
       <div class="subtotal-row">
         <span>Total</span>

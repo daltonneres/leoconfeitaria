@@ -121,6 +121,7 @@ function startListeners() {
     listenProducts();
     listenCustomers();
     listenPromotions();
+    listenCoupons();
     listenCashflow();
     listenOrders();
 }
@@ -129,6 +130,7 @@ function startListeners() {
 function switchTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    if (name === 'painel') renderDashboard();
 }
 
 /* ================= STATUS DA LOJA ================= */
@@ -382,8 +384,153 @@ async function importCategoriesFromProducts() {
     alert(`${productCats.length} categoria(s) importada(s)!`);
 }
 
+/* ================= PAINEL / GRÁFICOS ================= */
+let revenueChart = null;
+let statusChart = null;
+let topProductsChart = null;
+
+function isDashboardActive() {
+    const panel = document.getElementById('tab-painel');
+    return !!panel && panel.classList.contains('active');
+}
+
+function buildDashboardStats() {
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+    }
+    const revenueByDay = Object.fromEntries(days.map(d => [d, 0]));
+    const statusCounts = {};
+    const productQty7d = {};
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    let ordersToday = 0, revenueToday = 0, orders7d = 0, revenue7d = 0;
+
+    allOrders.forEach(o => {
+        statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+        if (o.status === 'cancelado') return; // cancelado não entra no faturamento
+
+        const date = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : null;
+        const dayStr = date ? date.toISOString().slice(0, 10) : null;
+
+        if (dayStr && Object.prototype.hasOwnProperty.call(revenueByDay, dayStr)) {
+            revenueByDay[dayStr] += (o.total || 0);
+        }
+        if (dayStr === todayStr) {
+            ordersToday++;
+            revenueToday += (o.total || 0);
+        }
+        if (date && date >= sevenDaysAgo) {
+            orders7d++;
+            revenue7d += (o.total || 0);
+            (o.items || []).forEach(i => {
+                productQty7d[i.name] = (productQty7d[i.name] || 0) + i.qty;
+            });
+        }
+    });
+
+    const topProducts = Object.entries(productQty7d).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    return { days, revenueByDay, statusCounts, topProducts, ordersToday, revenueToday, orders7d, revenue7d };
+}
+
+const DASHBOARD_STATUS_LABELS = { novo: 'Novo', preparo: 'Em preparo', pronto: 'Pronto', saiu_entrega: 'Saiu p/ entrega', entregue: 'Entregue', cancelado: 'Cancelado' };
+const DASHBOARD_COLORS = ['#B9854F', '#5A3A24', '#7A8B6F', '#CE9C86', '#96693B', '#B23B3B'];
+
+function renderDashboard() {
+    // Só monta os gráficos quando a aba está visível, senão o canvas fica com largura 0.
+    if (!isDashboardActive() || typeof Chart === 'undefined') return;
+
+    const stats = buildDashboardStats();
+
+    document.getElementById('kpi-orders-today').textContent = stats.ordersToday;
+    document.getElementById('kpi-revenue-today').textContent = fmtBRL(stats.revenueToday);
+    document.getElementById('kpi-orders-7d').textContent = stats.orders7d;
+    document.getElementById('kpi-revenue-7d').textContent = fmtBRL(stats.revenue7d);
+    document.getElementById('kpi-ticket-7d').textContent = fmtBRL(stats.orders7d ? stats.revenue7d / stats.orders7d : 0);
+
+    const lowStockProducts = allProducts.filter(p => p.stock != null && p.stock <= 3 && p.active !== false);
+    document.getElementById('kpi-lowstock').textContent = lowStockProducts.length;
+    renderLowStockList(lowStockProducts);
+
+    const dayLabels = stats.days.map(d => {
+        const [, m, day] = d.split('-');
+        return `${day}/${m}`;
+    });
+    const revenueValues = stats.days.map(d => Number(stats.revenueByDay[d].toFixed(2)));
+
+    if (revenueChart) revenueChart.destroy();
+    revenueChart = new Chart(document.getElementById('chart-revenue'), {
+        type: 'bar',
+        data: {
+            labels: dayLabels,
+            datasets: [{ label: 'Faturamento', data: revenueValues, backgroundColor: '#B9854F', borderRadius: 4 }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { callback: v => fmtBRL(v) } } }
+        }
+    });
+
+    const statusKeys = Object.keys(stats.statusCounts);
+    if (statusChart) statusChart.destroy();
+    statusChart = new Chart(document.getElementById('chart-status'), {
+        type: 'doughnut',
+        data: {
+            labels: statusKeys.map(k => DASHBOARD_STATUS_LABELS[k] || k),
+            datasets: [{ data: statusKeys.map(k => stats.statusCounts[k]), backgroundColor: DASHBOARD_COLORS }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+        }
+    });
+
+    if (topProductsChart) topProductsChart.destroy();
+    topProductsChart = new Chart(document.getElementById('chart-top-products'), {
+        type: 'bar',
+        data: {
+            labels: stats.topProducts.map(([name]) => name),
+            datasets: [{ label: 'Unidades vendidas', data: stats.topProducts.map(([, qty]) => qty), backgroundColor: '#7A8B6F', borderRadius: 4 }]
+        },
+        options: {
+            indexAxis: 'y',
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+function renderLowStockList(list) {
+    const root = document.getElementById('lowstock-list');
+    if (!root) return;
+    if (list.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum produto com estoque baixo no momento. 🎉</p>`;
+        return;
+    }
+    root.innerHTML = list.slice().sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0)).map(p => `
+    <div class="product-row" onclick="switchTab('produtos'); openProductModal('${p.id}');">
+      <div class="p-thumb">${p.img ? `<img src="${normalizeProductImageUrl(p.img)}" alt="">` : '🍰'}</div>
+      <div class="p-info">
+        <div class="p-name">${p.name}</div>
+        <div class="p-cat">${p.category || 'Sem categoria'}</div>
+      </div>
+      <div class="p-flags">${p.stock <= 0 ? '<span class="flag lowstock">Esgotado</span>' : `<span class="flag lowstock">Restam ${p.stock}</span>`}</div>
+    </div>
+  `).join('');
+}
+
 /* ================= PRODUTOS ================= */
 let allProducts = [];
+let productStockFilter = 'all';
 
 function listenProducts() {
     db.collection('products').onSnapshot(snap => {
@@ -391,16 +538,30 @@ function listenProducts() {
             .sort((a, b) => categoryOrderFor(a.category) - categoryOrderFor(b.category) || (a.category || '').localeCompare(b.category || '', 'pt-BR') || a.name.localeCompare(b.name, 'pt-BR'));
         renderProductsList();
         renderCategoriesList();
+        renderDashboard();
     });
 }
 
 document.getElementById('product-search').addEventListener('input', renderProductsList);
 
+document.getElementById('stock-filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip-filter');
+    if (!btn) return;
+    productStockFilter = btn.dataset.stock;
+    document.querySelectorAll('#stock-filters .chip-filter').forEach(b => b.classList.toggle('active', b === btn));
+    renderProductsList();
+});
+
 function renderProductsList() {
     const term = document.getElementById('product-search').value.trim().toLowerCase();
-    const list = allProducts.filter(p =>
+    let list = allProducts.filter(p =>
         !term || p.name.toLowerCase().includes(term) || (p.category || '').toLowerCase().includes(term)
     );
+    if (productStockFilter === 'low') {
+        list = list.filter(p => p.stock != null && p.stock > 0 && p.stock <= 3);
+    } else if (productStockFilter === 'out') {
+        list = list.filter(p => p.stock != null && p.stock <= 0);
+    }
     const root = document.getElementById('products-list');
     if (list.length === 0) {
         root.innerHTML = `<p class="hint-text">Nenhum produto encontrado.</p>`;
@@ -412,6 +573,13 @@ function renderProductsList() {
         if (p.stock != null && p.stock <= 0) flags.push('<span class="flag lowstock">Esgotado</span>');
         else if (p.stock != null && p.stock <= 3) flags.push(`<span class="flag lowstock">Estoque baixo (${p.stock})</span>`);
         if (p.promoPrice != null && p.promoPrice < p.price) flags.push('<span class="flag promo">Promoção</span>');
+        const stockControl = p.stock != null
+            ? `<div class="p-stock-control" onclick="event.stopPropagation()">
+              <button type="button" onclick="adjustStock('${p.id}', -1)" aria-label="Diminuir estoque">–</button>
+              <span>${p.stock}</span>
+              <button type="button" onclick="adjustStock('${p.id}', 1)" aria-label="Aumentar estoque">+</button>
+            </div>`
+            : `<div class="p-stock-control" onclick="event.stopPropagation()"><span class="p-stock-unlimited">sem controle</span></div>`;
         return `
       <div class="product-row" onclick="openProductModal('${p.id}')">
         <div class="p-thumb">${p.img ? `<img src="${normalizeProductImageUrl(p.img)}" alt="">` : '🍰'}</div>
@@ -420,9 +588,22 @@ function renderProductsList() {
           <div class="p-cat">${p.category || 'Sem categoria'}</div>
         </div>
         <div class="p-price">${fmtBRL(p.promoPrice != null && p.promoPrice < p.price ? p.promoPrice : p.price)}</div>
+        ${stockControl}
         <div class="p-flags">${flags.join('')}</div>
       </div>`;
     }).join('');
+}
+
+async function adjustStock(id, delta) {
+    const p = allProducts.find(x => x.id === id);
+    if (!p || p.stock == null) return;
+    const newStock = Math.max(0, p.stock + delta);
+    try {
+        await db.collection('products').doc(id).update({ stock: newStock });
+    } catch (err) {
+        console.error('Erro ao atualizar estoque:', err);
+        alert('Não foi possível atualizar o estoque agora. Tente de novo em instantes.');
+    }
 }
 
 function openProductModal(id) {
@@ -690,6 +871,105 @@ async function deleteCurrentPromo() {
     closePromoModal();
 }
 
+/* ================= CUPONS ================= */
+let allCoupons = [];
+
+function listenCoupons() {
+    db.collection('coupons').onSnapshot(snap => {
+        allCoupons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderCouponsList();
+    });
+}
+
+function renderCouponsList() {
+    const root = document.getElementById('coupons-list');
+    if (!root) return;
+    if (allCoupons.length === 0) {
+        root.innerHTML = `<p class="hint-text">Nenhum cupom cadastrado ainda.</p>`;
+        return;
+    }
+    root.innerHTML = allCoupons.map(c => {
+        const valueLabel = c.type === 'fixed' ? fmtBRL(c.value) : `${c.value}%`;
+        const details = [
+            c.active ? 'Ativo' : 'Inativo',
+            c.expiresAt ? `válido até ${c.expiresAt}` : 'sem validade',
+            c.minOrder ? `pedido mín. ${fmtBRL(c.minOrder)}` : null,
+            c.showInPopup ? 'aparece no pop-up' : null
+        ].filter(Boolean).join(' · ');
+        return `
+    <div class="promo-row" onclick="openCouponModal('${c.id}')">
+      <div>
+        <div class="pr-title">${c.code} — ${valueLabel} de desconto</div>
+        <div class="pr-dates">${details}</div>
+      </div>
+    </div>
+  `;
+    }).join('');
+}
+
+function openCouponModal(id) {
+    const form = document.getElementById('coupon-form');
+    form.reset();
+    document.getElementById('cp-id').value = id || '';
+    document.getElementById('cp-delete-btn').style.display = id ? 'block' : 'none';
+    document.getElementById('coupon-modal-title').textContent = id ? 'Editar cupom' : 'Novo cupom';
+
+    if (id) {
+        const c = allCoupons.find(x => x.id === id);
+        if (c) {
+            document.getElementById('cp-code').value = c.code || '';
+            document.getElementById('cp-type').value = c.type || 'percent';
+            document.getElementById('cp-value').value = c.value ?? '';
+            document.getElementById('cp-min-order').value = c.minOrder ?? '';
+            document.getElementById('cp-expires').value = c.expiresAt || '';
+            document.getElementById('cp-desc').value = c.description || '';
+            document.getElementById('cp-active').checked = c.active !== false;
+            document.getElementById('cp-show-popup').checked = !!c.showInPopup;
+        }
+    } else {
+        document.getElementById('cp-type').value = 'percent';
+        document.getElementById('cp-active').checked = true;
+        document.getElementById('cp-show-popup').checked = false;
+    }
+    document.getElementById('coupon-modal').classList.add('open');
+}
+
+function closeCouponModal() {
+    document.getElementById('coupon-modal').classList.remove('open');
+}
+
+document.getElementById('coupon-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('cp-id').value;
+    const code = document.getElementById('cp-code').value.trim().toUpperCase();
+    if (!code) return;
+    const minOrderVal = document.getElementById('cp-min-order').value;
+    const payload = {
+        code,
+        type: document.getElementById('cp-type').value,
+        value: Number(document.getElementById('cp-value').value) || 0,
+        minOrder: minOrderVal ? Number(minOrderVal) : null,
+        expiresAt: document.getElementById('cp-expires').value || null,
+        description: document.getElementById('cp-desc').value.trim(),
+        active: document.getElementById('cp-active').checked,
+        showInPopup: document.getElementById('cp-show-popup').checked
+    };
+    if (id) {
+        await db.collection('coupons').doc(id).set(payload, { merge: true });
+    } else {
+        await db.collection('coupons').add(payload);
+    }
+    closeCouponModal();
+});
+
+async function deleteCurrentCoupon() {
+    const id = document.getElementById('cp-id').value;
+    if (!id) return;
+    if (!confirm('Excluir este cupom?')) return;
+    await db.collection('coupons').doc(id).delete();
+    closeCouponModal();
+}
+
 /* ================= FINANCEIRO ================= */
 let allCash = [];
 let cashType = 'entrada';
@@ -833,6 +1113,7 @@ function listenOrders() {
         }
         allOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderOrders();
+        renderDashboard();
     }, err => console.error('Erro ao carregar pedidos:', err));
 }
 
@@ -913,9 +1194,15 @@ function renderOrders() {
           ${next ? `<button onclick="setOrderStatus('${o.id}','${next}')">Marcar como ${statusLabelFor(next, o.fulfillment).toLowerCase()}</button>` : ''}
           ${o.status !== 'cancelado' && o.status !== 'entregue' ? `<button onclick="setOrderStatus('${o.id}','cancelado')">Cancelar</button>` : ''}
           ${o.status === 'entregue' ? `<button onclick="launchOrderAsCash('${o.id}')">Lançar no caixa</button>` : ''}
+          <button class="btn-danger" onclick="deleteOrder('${o.id}')">Excluir</button>
         </div>
       </div>`;
     }).join('');
+}
+
+async function deleteOrder(id) {
+    if (!confirm('Excluir este pedido permanentemente? Essa ação não pode ser desfeita.')) return;
+    await db.collection('orders').doc(id).delete();
 }
 
 async function setOrderStatus(id, status) {

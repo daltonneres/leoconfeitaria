@@ -67,10 +67,12 @@
     <audio id="new-order-sound" src="assets/novo-pedido.mp3" preload="auto"></audio>
 
     <nav class="admin-tabs">
-      <button class="tab-btn active" data-tab="pedidos" onclick="switchTab('pedidos')">Pedidos <span class="tab-badge" id="badge-pedidos"></span></button>
+      <button class="tab-btn active" data-tab="painel" onclick="switchTab('painel')">Painel</button>
+      <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')">Pedidos <span class="tab-badge" id="badge-pedidos"></span></button>
       <button class="tab-btn" data-tab="produtos" onclick="switchTab('produtos')">Produtos</button>
       <button class="tab-btn" data-tab="categorias" onclick="switchTab('categorias')">Categorias</button>
       <button class="tab-btn" data-tab="promocoes" onclick="switchTab('promocoes')">Promoções</button>
+      <button class="tab-btn" data-tab="cupons" onclick="switchTab('cupons')">Cupons</button>
       <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')">Clientes</button>
       <button class="tab-btn" data-tab="financeiro" onclick="switchTab('financeiro')">Financeiro</button>
       <button class="tab-btn" data-tab="config" onclick="switchTab('config')">Loja</button>
@@ -78,8 +80,62 @@
 
     <main class="admin-main">
 
+      <!-- ---------- PAINEL (DASHBOARD) ---------- -->
+      <section class="tab-panel active" id="tab-painel">
+        <div class="panel-head">
+          <h2>Painel</h2>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span>Pedidos hoje</span>
+            <strong id="kpi-orders-today">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Faturamento hoje</span>
+            <strong id="kpi-revenue-today">R$ 0,00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Pedidos (7 dias)</span>
+            <strong id="kpi-orders-7d">0</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Faturamento (7 dias)</span>
+            <strong id="kpi-revenue-7d">R$ 0,00</strong>
+          </div>
+          <div class="kpi-card">
+            <span>Ticket médio (7 dias)</span>
+            <strong id="kpi-ticket-7d">R$ 0,00</strong>
+          </div>
+          <div class="kpi-card warn">
+            <span>Estoque baixo / esgotado</span>
+            <strong id="kpi-lowstock">0</strong>
+          </div>
+        </div>
+
+        <div class="dashboard-charts">
+          <div class="chart-card">
+            <h3>Faturamento — últimos 14 dias</h3>
+            <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>Pedidos por status</h3>
+            <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>Mais vendidos (7 dias)</h3>
+            <div class="chart-wrap"><canvas id="chart-top-products"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel-head" style="margin-top:28px;">
+          <h2>Estoque baixo</h2>
+        </div>
+        <div id="lowstock-list" class="products-list"></div>
+      </section>
+
       <!-- ---------- PEDIDOS ---------- -->
-      <section class="tab-panel active" id="tab-pedidos">
+      <section class="tab-panel" id="tab-pedidos">
         <div class="panel-head">
           <h2>Pedidos</h2>
           <div class="order-filters" id="order-filters">
@@ -103,6 +159,12 @@
             <button class="btn-primary" onclick="openProductModal()">+ Novo produto</button>
           </div>
         </div>
+        <div class="order-filters" id="stock-filters">
+          <button class="chip-filter active" data-stock="all">Todos</button>
+          <button class="chip-filter" data-stock="low">Estoque baixo</button>
+          <button class="chip-filter" data-stock="out">Esgotados</button>
+        </div>
+        <p class="hint-text">Use os botões − / + no estoque de cada produto para ajustar rápido, sem abrir o cadastro. Produtos sem número de estoque definido são tratados como estoque ilimitado.</p>
         <div class="field inline-search">
           <input id="product-search" type="text" placeholder="Buscar produto por nome ou categoria...">
         </div>
@@ -130,6 +192,16 @@
         </div>
         <p class="hint-text">Promoções aqui aparecem como uma faixa em destaque no site. Para dar desconto direto no preço de um produto, edite o produto e preencha o "preço promocional".</p>
         <div id="promos-list" class="promos-list"></div>
+      </section>
+
+      <!-- ---------- CUPONS ---------- -->
+      <section class="tab-panel" id="tab-cupons">
+        <div class="panel-head">
+          <h2>Cupons</h2>
+          <button class="btn-primary" onclick="openCouponModal()">+ Novo cupom</button>
+        </div>
+        <p class="hint-text">O cliente digita o código na sacola para ganhar o desconto. Ative "Mostrar no pop-up" para o cupom aparecer automaticamente na tela inicial.</p>
+        <div id="coupons-list" class="promos-list"></div>
       </section>
 
       <!-- ---------- CLIENTES ---------- -->
@@ -379,6 +451,60 @@
     </div>
   </div>
 
+  <!-- ===================== MODAL CUPOM ===================== -->
+  <div class="modal-overlay" id="coupon-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="coupon-modal-title">Novo cupom</h3>
+        <button class="modal-close" onclick="closeCouponModal()">&times;</button>
+      </div>
+      <form id="coupon-form" class="modal-body">
+        <input type="hidden" id="cp-id">
+        <div class="field">
+          <label>Código do cupom</label>
+          <input id="cp-code" type="text" required placeholder="Ex: BEMVINDO10" style="text-transform:uppercase;">
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Tipo de desconto</label>
+            <select id="cp-type">
+              <option value="percent">Percentual (%)</option>
+              <option value="fixed">Valor fixo (R$)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Valor do desconto</label>
+            <input id="cp-value" type="number" step="0.01" min="0" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Pedido mínimo (opcional)</label>
+            <input id="cp-min-order" type="number" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label>Validade (opcional)</label>
+            <input id="cp-expires" type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label>Descrição (aparece no pop-up, opcional)</label>
+          <input id="cp-desc" type="text" placeholder="Ex: Válido para o primeiro pedido">
+        </div>
+        <div class="field checkbox-field">
+          <label><input type="checkbox" id="cp-active" checked> Ativo</label>
+        </div>
+        <div class="field checkbox-field">
+          <label><input type="checkbox" id="cp-show-popup"> Mostrar no pop-up da tela inicial</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="cp-delete-btn" onclick="deleteCurrentCoupon()">Excluir</button>
+          <button type="submit" class="btn-primary">Salvar cupom</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ===================== MODAL FINANCEIRO ===================== -->
   <div class="modal-overlay" id="cash-modal">
     <div class="modal-card">
@@ -418,6 +544,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="firebase-config.js"></script>
   <script src="admin.js"></script>
 </body>

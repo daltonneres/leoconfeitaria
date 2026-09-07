@@ -25,12 +25,14 @@ let STORE_INFO = {
 let MENU = []; // preenchido em tempo real a partir da coleção "products"
 let PROMOTIONS = []; // preenchido a partir da coleção "promotions"
 let CATEGORIES = []; // preenchido a partir da coleção "categories" — define a ordem do cardápio
+let COUPONS = []; // preenchido a partir da coleção "coupons"
 
 /* ================= STATE (carrinho em memória — sem localStorage) ================= */
 let cart = {}; // { itemId: qty }
 let fulfillment = "retirada";
 let appliedCashback = { amount: 0, orderIds: [] }; // cashback disponível pro telefone digitado no checkout
 let cashbackCheckToken = 0; // evita que uma consulta antiga sobrescreva uma mais nova
+let appliedCoupon = null; // { id, code, type, value, minOrder } — cupom digitado pelo cliente na sacola
 
 function fmtBRL(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -101,6 +103,8 @@ function renderStoreInfo() {
             ? `Cashback de ${fmtBRL(STORE_INFO.cashbackAmount)} por pedido`
             : 'Cashback sujeito a disponibilidade';
     }
+
+    renderPromoBanner();
 }
 
 /* ================= PROMOÇÕES ================= */
@@ -129,20 +133,35 @@ function formatCountdown(endDate) {
 
 function renderPromoBanner() {
     const el = document.getElementById('promo-banner');
-    const active = getActivePromotions();
-
     if (!el) return;
 
-    if (active.length === 0) {
+    // Chips fixos com as regras da loja (frete, pedido mínimo, cashback), vindos do painel.
+    const baseChips = [];
+    if (STORE_INFO.minOrder) {
+        baseChips.push(`<span class="promo-chip">Pedido mínimo ${fmtBRL(STORE_INFO.minOrder)}</span>`);
+    }
+    if (STORE_INFO.shippingFee) {
+        baseChips.push(`<span class="promo-chip">Frete ${fmtBRL(STORE_INFO.shippingFee)} no delivery</span>`);
+    }
+    if (STORE_INFO.cashbackAmount) {
+        const validDays = STORE_INFO.cashbackValidDays || 30;
+        baseChips.push(`<span class="promo-chip">Ganhe ${fmtBRL(STORE_INFO.cashbackAmount)} de cashback a cada pedido, válido por ${validDays} dias</span>`);
+    }
+
+    // Promoções em destaque cadastradas no painel, com contagem regressiva quando têm data de fim.
+    const promoChips = getActivePromotions().map(p => {
+        const countdown = formatCountdown(p.endDate);
+        return `<span class="promo-chip">🔥 ${p.title}${countdown ? ` <span class="promo-countdown">· ${countdown}</span>` : ''}</span>`;
+    });
+
+    const allChips = [...promoChips, ...baseChips];
+    if (allChips.length === 0) {
         el.style.display = 'none';
         el.innerHTML = '';
         return;
     }
     el.style.display = 'flex';
-    el.innerHTML = active.map(p => {
-        const countdown = formatCountdown(p.endDate);
-        return `<span class="promo-chip">🔥 ${p.title}${countdown ? ` <span class="promo-countdown">· ${countdown}</span>` : ''}</span>`;
-    }).join('');
+    el.innerHTML = allChips.join('');
 }
 
 function promoProductRow(item) {
@@ -159,12 +178,43 @@ function promoProductRow(item) {
     </button>`;
 }
 
+/* ================= CUPONS: exibição no pop-up da tela inicial ================= */
+function getActivePromoCoupons() {
+    const today = new Date().toISOString().slice(0, 10);
+    return COUPONS.filter(c => c.active && c.showInPopup && (!c.expiresAt || c.expiresAt >= today));
+}
+
+function couponPopupRow(c) {
+    const valueLabel = c.type === 'fixed' ? `${fmtBRL(c.value)} de desconto` : `${c.value}% de desconto`;
+    const minOrderLabel = c.minOrder ? `<div class="coupon-popup-min">Em pedidos a partir de ${fmtBRL(c.minOrder)}</div>` : '';
+    return `
+    <div class="coupon-popup-item">
+      <div class="coupon-popup-head">
+        <span class="coupon-popup-code">${c.code}</span>
+        <span class="coupon-popup-value">${valueLabel}</span>
+      </div>
+      ${c.description ? `<div class="coupon-popup-desc">${c.description}</div>` : ''}
+      ${minOrderLabel}
+      <button type="button" class="coupon-popup-use-btn" onclick="useCouponFromPopup('${c.code}')">Usar cupom</button>
+    </div>`;
+}
+
+function useCouponFromPopup(code) {
+    closePromotionPopup();
+    openCart();
+    const input = document.getElementById('f-cupom');
+    if (!input) return;
+    input.value = code;
+    if (cartCount() > 0) applyCoupon();
+}
+
 function renderPromotionPopupContent() {
     const listEl = document.getElementById('promo-popup-list');
     if (!listEl) return;
     const active = getActivePromotions();
+    const coupons = getActivePromoCoupons();
 
-    listEl.innerHTML = active.map(p => {
+    const promosHtml = active.map(p => {
         const items = (p.productIds || []).map(findItem).filter(Boolean);
         const countdown = formatCountdown(p.endDate);
         return `
@@ -174,6 +224,15 @@ function renderPromotionPopupContent() {
         ${items.length ? `<div class="promo-popup-products">${items.map(promoProductRow).join('')}</div>` : ''}
       </div>`;
     }).join('');
+
+    const couponsHtml = coupons.length
+        ? `<div class="promo-popup-item coupon-popup-block">
+        <div class="promo-popup-item-title">Cupons disponíveis</div>
+        ${coupons.map(couponPopupRow).join('')}
+      </div>`
+        : '';
+
+    listEl.innerHTML = promosHtml + couponsHtml;
 }
 
 function addPromoProduct(id) {
@@ -191,10 +250,14 @@ function addPromoProduct(id) {
 
 function renderPromotionPopup() {
     const active = getActivePromotions();
+    const coupons = getActivePromoCoupons();
     const popup = document.getElementById('promo-popup');
-    if (!popup || active.length === 0) return;
+    if (!popup || (active.length === 0 && coupons.length === 0)) return;
 
-    const signature = active.map(p => p.id || `${p.title}-${p.startDate}-${p.endDate}`).join('|');
+    const signature = [
+        ...active.map(p => p.id || `${p.title}-${p.startDate}-${p.endDate}`),
+        ...coupons.map(c => `cupom-${c.id || c.code}`)
+    ].join('|');
     const storageKey = 'doces-leo-promo-popup';
     try {
         if (sessionStorage.getItem(storageKey) === signature) return;
@@ -401,12 +464,130 @@ function shippingFeeFor(fulfillmentType) {
     return fulfillmentType === 'delivery' ? (STORE_INFO.shippingFee || 0) : 0;
 }
 
+/* ================= CUPOM: aplicado manualmente pelo cliente na sacola ================= */
+function normalizeCouponCode(code) {
+    return (code || '').trim().toUpperCase();
+}
+
+function findCouponByCode(code) {
+    const normalized = normalizeCouponCode(code);
+    return COUPONS.find(c => normalizeCouponCode(c.code) === normalized);
+}
+
+function isCouponValid(c) {
+    if (!c || !c.active) return false;
+    if (c.expiresAt) {
+        const today = new Date().toISOString().slice(0, 10);
+        if (c.expiresAt < today) return false;
+    }
+    return true;
+}
+
+function couponDiscountAmount(c, subtotal) {
+    if (!c) return 0;
+    const raw = c.type === 'fixed' ? c.value : subtotal * (c.value / 100);
+    return Math.min(subtotal, Math.max(0, raw));
+}
+
+// Recalcula o desconto do cupom aplicado com base no subtotal atual
+// (o pedido mínimo do cupom pode deixar de valer se o cliente remover itens).
+function currentCouponDiscount(subtotal) {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) return 0;
+    return couponDiscountAmount(appliedCoupon, subtotal);
+}
+
+function setCouponMessage(text, isError) {
+    const msgEl = document.getElementById('coupon-message');
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.classList.toggle('coupon-error', !!isError);
+}
+
+// Cashback e cupom não se acumulam: se o cliente aplicar um cupom, o cashback
+// automático fica pausado neste pedido até o cupom ser removido.
+function updateCashbackHint() {
+    const hintEl = document.getElementById('cashback-hint');
+    if (!hintEl) return;
+    if (appliedCoupon) {
+        hintEl.textContent = appliedCashback.amount > 0
+            ? `Você tem ${fmtBRL(appliedCashback.amount)} de cashback disponível, mas ele não será usado enquanto o cupom ${appliedCoupon.code} estiver aplicado.`
+            : 'Cupom aplicado — o cashback automático fica pausado enquanto o cupom estiver ativo.';
+    } else if (appliedCashback.amount > 0) {
+        hintEl.textContent = `Cashback de ${fmtBRL(appliedCashback.amount)} será aplicado automaticamente neste pedido.`;
+    } else {
+        hintEl.textContent = 'Se você tiver cashback disponível, ele é aplicado automaticamente.';
+    }
+}
+
+function applyCoupon() {
+    const input = document.getElementById('f-cupom');
+    if (!input) return;
+    const code = input.value.trim();
+    if (!code) {
+        setCouponMessage('Digite um código de cupom.', true);
+        return;
+    }
+
+    const coupon = findCouponByCode(code);
+    if (!coupon || !isCouponValid(coupon)) {
+        setCouponMessage('Cupom inválido ou expirado.', true);
+        appliedCoupon = null;
+        renderCart();
+        return;
+    }
+
+    const subtotal = cartTotal();
+    if (coupon.minOrder && subtotal < coupon.minOrder) {
+        setCouponMessage(`Esse cupom exige pedido mínimo de ${fmtBRL(coupon.minOrder)}.`, true);
+        appliedCoupon = null;
+        renderCart();
+        return;
+    }
+
+    appliedCoupon = {
+        id: coupon.id,
+        code: normalizeCouponCode(coupon.code),
+        type: coupon.type,
+        value: coupon.value,
+        minOrder: coupon.minOrder || null
+    };
+    setCouponMessage(`Cupom ${appliedCoupon.code} aplicado! 🎉`, false);
+    input.value = appliedCoupon.code;
+    input.disabled = true;
+    const btn = document.getElementById('coupon-apply-btn');
+    if (btn) {
+        btn.textContent = 'Remover';
+        btn.setAttribute('onclick', 'removeCoupon()');
+    }
+    renderCart();
+}
+
+function removeCoupon() {
+    appliedCoupon = null;
+    const input = document.getElementById('f-cupom');
+    if (input) {
+        input.disabled = false;
+        input.value = '';
+    }
+    setCouponMessage('', false);
+    const btn = document.getElementById('coupon-apply-btn');
+    if (btn) {
+        btn.textContent = 'Aplicar';
+        btn.setAttribute('onclick', 'applyCoupon()');
+    }
+    renderCart();
+}
+
 function renderCart() {
     const count = cartCount();
     const subtotal = cartTotal();
-    const cashbackDiscount = Math.min(appliedCashback.amount, subtotal);
+    // Cashback e cupom não se acumulam: com cupom aplicado, o cashback fica de fora deste pedido.
+    const cashbackDiscount = appliedCoupon ? 0 : Math.min(appliedCashback.amount, subtotal);
+    const couponDiscount = currentCouponDiscount(subtotal);
     const shipping = shippingFeeFor(fulfillment);
-    const total = subtotal - cashbackDiscount + shipping;
+    const total = Math.max(0, subtotal - cashbackDiscount - couponDiscount + shipping);
+    updateCashbackHint();
 
     document.getElementById('nav-cart-count').textContent = count;
     document.getElementById('fab-cart-count').textContent = count;
@@ -434,6 +615,20 @@ function renderCart() {
         }
     }
 
+    const couponRow = document.getElementById('coupon-applied-row');
+    if (couponRow) {
+        if (appliedCoupon && couponDiscount > 0) {
+            couponRow.classList.remove('hidden');
+            document.getElementById('coupon-applied-code').textContent = appliedCoupon.code;
+            document.getElementById('coupon-applied-value').textContent = `− ${fmtBRL(couponDiscount)}`;
+        } else {
+            couponRow.classList.add('hidden');
+        }
+    }
+    if (appliedCoupon && appliedCoupon.minOrder && subtotal < appliedCoupon.minOrder) {
+        setCouponMessage(`Esse cupom exige pedido mínimo de ${fmtBRL(appliedCoupon.minOrder)} — faltam ${fmtBRL(appliedCoupon.minOrder - subtotal)}.`, true);
+    }
+
     const linesEl = document.getElementById('cart-lines');
     const emptyEl = document.getElementById('empty-msg');
     const formEl = document.getElementById('checkout-form');
@@ -448,6 +643,8 @@ function renderCart() {
         if (minNote) minNote.style.display = 'none';
         const progressElEmpty = document.getElementById('min-order-progress');
         if (progressElEmpty) progressElEmpty.classList.add('hidden');
+        const couponRowEmpty = document.getElementById('coupon-applied-row');
+        if (couponRowEmpty) couponRowEmpty.classList.add('hidden');
         return;
     }
 
@@ -654,9 +851,10 @@ async function sendToWhatsapp() {
     if (phoneDigits !== normalizePhone(document.getElementById('f-telefone').dataset.checkedPhone || '')) {
         await refreshCashbackForPhone();
     }
-    const cashbackUsed = Math.min(appliedCashback.amount, subtotal);
+    const cashbackUsed = appliedCoupon ? 0 : Math.min(appliedCashback.amount, subtotal);
+    const couponUsed = currentCouponDiscount(subtotal);
     const shipping = shippingFeeFor(fulfillment);
-    const total = subtotal - cashbackUsed + shipping;
+    const total = Math.max(0, subtotal - cashbackUsed - couponUsed + shipping);
 
     const waBtn = document.getElementById('whatsapp-btn');
     sendingOrder = true;
@@ -673,6 +871,8 @@ async function sendToWhatsapp() {
             items,
             subtotal,
             cashbackUsed,
+            couponCode: appliedCoupon ? appliedCoupon.code : null,
+            couponDiscount: couponUsed,
             shippingFee: shipping,
             total,
             fulfillment,
@@ -714,6 +914,9 @@ async function sendToWhatsapp() {
     if (cashbackUsed > 0) {
         msg += `Cashback aplicado: −${fmtBRL(cashbackUsed)}\n`;
     }
+    if (couponUsed > 0) {
+        msg += `Cupom ${appliedCoupon.code}: −${fmtBRL(couponUsed)}\n`;
+    }
     msg += `Total: ${fmtBRL(total)}\n`;
     msg += `\nForma de recebimento: ${fulfillment === 'delivery' ? 'Delivery' : 'Retirada no local'}\n`;
     msg += `Forma de pagamento: ${paymentMethod === 'pix' ? 'Pix' : 'Dinheiro'}\n`;
@@ -734,6 +937,7 @@ async function sendToWhatsapp() {
     window.open(url, '_blank');
 
     appliedCashback = { amount: 0, orderIds: [] };
+    removeCoupon();
     sendingOrder = false;
     waBtn.textContent = 'Finalizar pedido no WhatsApp';
     waBtn.disabled = false;
@@ -985,6 +1189,15 @@ function listenPromotions() {
     }, err => console.error('Erro ao carregar promoções:', err));
 }
 
+/* ================= FIRESTORE: CUPONS (tempo real) ================= */
+function listenCoupons() {
+    db.collection('coupons').onSnapshot(snap => {
+        COUPONS = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPromotionPopupContent();
+        renderPromotionPopup();
+    }, err => console.error('Erro ao carregar cupons:', err));
+}
+
 /* ================= INIT ================= */
 renderStoreInfo();
 renderStatus();
@@ -997,6 +1210,7 @@ listenStoreConfig();
 listenCategories();
 listenProducts();
 listenPromotions();
+listenCoupons();
 
 document.getElementById('f-telefone').addEventListener('blur', refreshCashbackForPhone);
 
